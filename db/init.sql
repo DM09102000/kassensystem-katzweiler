@@ -78,15 +78,15 @@ INSERT INTO products (name, size_info, price, category) VALUES
 
 -- Standardbenutzer anlegen
 -- Passwörter (bcrypt Hashed):
--- admin123 -> $2a$10$wKzN8gTqE3kM2yH5h6w.ueFp6k99V1UeW3Q76LpZc11i19aH6iJey
--- kasse123 -> $2a$10$4n9P.H97L06xQ6T7bYwX3exgVb4s2Zl3G7W9/bK1R3l1iZ6rP.eB8q
--- spieler123 -> $2a$10$wXbM0c2T.UqWj2Zl3G7W9.X.qWj2Zl3G7W9/bK1R3l1iZ6rP.eB8q
+-- admin123 -> $2a$10$qHsc5wNOvaE/KffTbu8lsur4J3OLWLls6K9ScE4C.XgU6kzpzc0BO
+-- kasse123 -> $2a$10$hGe9276qyuwl.yW70anyNun.B870/00tFQk7ylMhBlVLyhnE/W61O
+-- spieler123 -> $2a$10$Z8BsNRUddtWEPyoGGXNaOux7GtYE0lLeDHgOr/W18JaZCOD2i2n0m
 
 INSERT INTO users (name, username, password_hash, role, balance) VALUES
-('Administrator', 'admin', '$2a$10$wKzN8gTqE3kM2yH5h6w.ueFp6k99V1UeW3Q76LpZc11i19aH6iJey', 'admin', 100.00),
-('Kassenterminal', 'kasse', '$2a$10$4n9P.H97L06xQ6T7bYwX3exgVb4s2Zl3G7W9/bK1R3l1iZ6rP.eB8q', 'pos', 0.00),
-('Max Mustermann', 'max', '$2a$10$wXbM0c2T.UqWj2Zl3G7W9.X.qWj2Zl3G7W9/bK1R3l1iZ6rP.eB8q', 'user', 50.00),
-('Erika Mustermann', 'erika', '$2a$10$wXbM0c2T.UqWj2Zl3G7W9.X.qWj2Zl3G7W9/bK1R3l1iZ6rP.eB8q', 'user', 75.50);
+('Administrator', 'admin', '$2a$10$qHsc5wNOvaE/KffTbu8lsur4J3OLWLls6K9ScE4C.XgU6kzpzc0BO', 'admin', 100.00),
+('Kassenterminal', 'kasse', '$2a$10$hGe9276qyuwl.yW70anyNun.B870/00tFQk7ylMhBlVLyhnE/W61O', 'pos', 0.00),
+('Max Mustermann', 'max', '$2a$10$Z8BsNRUddtWEPyoGGXNaOux7GtYE0lLeDHgOr/W18JaZCOD2i2n0m', 'user', 50.00),
+('Erika Mustermann', 'erika', '$2a$10$Z8BsNRUddtWEPyoGGXNaOux7GtYE0lLeDHgOr/W18JaZCOD2i2n0m', 'user', 75.50);
 
 -- Kinder für Max Mustermann (User ID 3)
 INSERT INTO users (name, username, password_hash, role, balance, parent_id, nfc_id, fingerprint_id) VALUES
