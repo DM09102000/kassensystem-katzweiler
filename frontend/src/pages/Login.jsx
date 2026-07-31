@@ -178,6 +178,6 @@ const styles = {
   demoGrid: {
     display: 'grid',
     gap: '0.25rem',
-    color: var => 'var(--text-muted)',
+    color: 'var(--text-muted)',
   },
 };
