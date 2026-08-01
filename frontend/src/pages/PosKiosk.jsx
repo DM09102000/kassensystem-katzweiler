@@ -950,7 +950,6 @@ export default function PosKiosk({ token }) {
                 </>
               )}
             </div>
-            </div>
           </div>
         </div>
       )}
