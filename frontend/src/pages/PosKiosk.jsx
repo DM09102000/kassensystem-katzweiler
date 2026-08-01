@@ -1,5 +1,19 @@
 import React, { useState, useEffect } from 'react';
 
+const DENOMINATIONS = [
+  { value: 100.0, label: '100 €', type: 'bill', color: '#889a74', border: '#748660' }, // premium olive green bill
+  { value: 50.0, label: '50 €', type: 'bill', color: '#d4883b', border: '#bb742c' },   // orange-amber bill
+  { value: 20.0, label: '20 €', type: 'bill', color: '#5b7aa6', border: '#46628c' },   // blue bill
+  { value: 10.0, label: '10 €', type: 'bill', color: '#c45a50', border: '#aa463d' },   // red bill
+  { value: 5.0, label: '5 €', type: 'bill', color: '#7a8c7d', border: '#647667' },     // grey-green bill
+  { value: 2.0, label: '2 €', type: 'coin', color: '#dec68a', border: '#b0b0b0' },
+  { value: 1.0, label: '1 €', type: 'coin', color: '#d0d0d0', border: '#bfa468' },
+  { value: 0.5, label: '0,50 €', type: 'coin', color: '#bfa468', border: '#a88f55' },
+  { value: 0.2, label: '0,20 €', type: 'coin', color: '#bfa468', border: '#a88f55' },
+  { value: 0.1, label: '0,10 €', type: 'coin', color: '#bfa468', border: '#a88f55' },
+  { value: 0.05, label: '0,05 €', type: 'coin', color: '#a05c30', border: '#8b4b20' }, // copper coin
+];
+
 export default function PosKiosk({ token }) {
   const [products, setProducts] = useState([]);
   const [users, setUsers] = useState([]);
@@ -15,8 +29,8 @@ export default function PosKiosk({ token }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
 
-  // Aufladebetrag
-  const [chargeAmount, setChargeAmount] = useState('');
+  // Münz- und Scheinzähler
+  const [cashCounts, setCashCounts] = useState({});
 
   // Status-Meldungen
   const [error, setError] = useState('');
@@ -170,9 +184,30 @@ export default function PosKiosk({ token }) {
     }
   };
 
+  // Münz-/Scheinauswahl berechnen und anpassen
+  const adjustCashCount = (val, delta) => {
+    setCashCounts((prev) => {
+      const current = prev[val] || 0;
+      const next = current + delta;
+      if (next <= 0) {
+        const copy = { ...prev };
+        delete copy[val];
+        return copy;
+      }
+      return { ...prev, [val]: next };
+    });
+  };
+
+  const getRechargeTotal = () => {
+    return Object.entries(cashCounts).reduce(
+      (sum, [val, qty]) => sum + parseFloat(val) * qty,
+      0
+    );
+  };
+
   // Guthaben aufladen
   const handleRecharge = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     setError('');
     setSuccess('');
 
@@ -181,9 +216,9 @@ export default function PosKiosk({ token }) {
       return;
     }
 
-    const amount = parseFloat(chargeAmount);
-    if (isNaN(amount) || amount <= 0) {
-      setError('Geben Sie einen gültigen Betrag ein.');
+    const amount = getRechargeTotal();
+    if (amount <= 0) {
+      setError('Bitte wählen Sie Münzen oder Geldscheine aus, um einen Betrag aufzuladen.');
       return;
     }
 
@@ -201,7 +236,7 @@ export default function PosKiosk({ token }) {
       if (!response.ok) throw new Error(data.error || 'Fehler beim Aufladen');
 
       setSuccess(`Erfolgreich ${amount.toFixed(2).replace('.', ',')} € auf das Konto von ${selectedUser.name} geladen.`);
-      setChargeAmount('');
+      setCashCounts({});
       setSelectedUser(null);
       setSearchQuery('');
       loadInitialData(); // Kontostände aktualisieren
@@ -323,14 +358,95 @@ export default function PosKiosk({ token }) {
             </div>
           </div>
         ) : (
-          /* BEI AUFLADE-MODUS: GROSSE INFO */
-          <div className="card" style={styles.rechargeIntroPanel}>
-            <div style={{ textAlign: 'center', padding: '2rem' }}>
-              <span style={{ fontSize: '4rem' }}>💶</span>
-              <h2>Guthaben aufladen</h2>
-              <p style={{ maxWidth: '500px', margin: '1rem auto' }}>
-                Wähle rechts den Benutzer aus (über Suche, NFC-Simulation oder Fingerabdruck), trage den Bar gezahlten Betrag ein und klicke auf "Guthaben aufladen".
-              </p>
+          /* BEI AUFLADE-MODUS: MÜNZEN & SCHEINE AUSWAHL */
+          <div style={styles.cashPanel} className="card">
+            <div style={styles.cashSectionHeader}>
+              <h2 style={{ color: 'var(--accent)', fontSize: '1.25rem' }}>💶 Geldscheine</h2>
+              <p style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>Für +1 Schein tippen, auf minus (-) klicken zum Abziehen</p>
+            </div>
+            <div style={styles.billsGrid}>
+              {DENOMINATIONS.filter(d => d.type === 'bill').map((denom) => {
+                const count = cashCounts[denom.value] || 0;
+                return (
+                  <div 
+                    key={denom.value} 
+                    style={{
+                      ...styles.cashTile,
+                      ...styles.billTile,
+                      backgroundColor: denom.color,
+                      borderColor: denom.border,
+                    }}
+                  >
+                    <button 
+                      onClick={() => adjustCashCount(denom.value, 1)}
+                      style={styles.cashTileMainBtn}
+                    >
+                      <span style={styles.billLabelText}>{denom.label}</span>
+                      {count > 0 && (
+                        <span style={styles.billCountBadge}>{count}</span>
+                      )}
+                    </button>
+                    {count > 0 && (
+                      <button 
+                        onClick={() => adjustCashCount(denom.value, -1)}
+                        style={styles.cashTileMinusBtn}
+                      >
+                        -
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ ...styles.cashSectionHeader, marginTop: '2rem' }}>
+              <h2 style={{ color: 'var(--accent)', fontSize: '1.25rem' }}>🪙 Münzen</h2>
+              <p style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>Für +1 Münze tippen, auf minus (-) klicken zum Abziehen</p>
+            </div>
+            <div style={styles.coinsGrid}>
+              {DENOMINATIONS.filter(d => d.type === 'coin').map((denom) => {
+                const count = cashCounts[denom.value] || 0;
+                const isTwoEuro = denom.value === 2.0;
+                const isOneEuro = denom.value === 1.0;
+                
+                return (
+                  <div 
+                    key={denom.value} 
+                    style={{
+                      ...styles.cashTile,
+                      ...styles.coinTile,
+                      backgroundColor: denom.color,
+                      borderColor: denom.border,
+                      backgroundImage: isTwoEuro 
+                        ? 'radial-gradient(circle, #dec68a 50%, #d0d0d0 52%)' 
+                        : isOneEuro 
+                          ? 'radial-gradient(circle, #d0d0d0 50%, #dec68a 52%)' 
+                          : 'none',
+                    }}
+                  >
+                    <button 
+                      onClick={() => adjustCashCount(denom.value, 1)}
+                      style={styles.cashTileMainBtn}
+                    >
+                      <span style={{
+                        ...styles.coinLabelText,
+                        color: (isTwoEuro || isOneEuro) ? '#333' : denom.value === 0.05 ? '#fff' : '#222'
+                      }}>{denom.label}</span>
+                      {count > 0 && (
+                        <span style={styles.coinCountBadge}>{count}</span>
+                      )}
+                    </button>
+                    {count > 0 && (
+                      <button 
+                        onClick={() => adjustCashCount(denom.value, -1)}
+                        style={styles.cashTileMinusBtn}
+                      >
+                        -
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -562,31 +678,58 @@ export default function PosKiosk({ token }) {
             /* AUFLADE-EINGABE */
             <div className="card" style={styles.sidebarCard}>
               <h2 style={styles.cardHeaderTitle}>💶 Betrag einzahlen</h2>
-              <form onSubmit={handleRecharge}>
-                <div className="form-group">
-                  <label className="form-label">Einzahlungs-Betrag (€)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="input-field"
-                    placeholder="z.B. 10.00"
-                    value={chargeAmount}
-                    onChange={(e) => setChargeAmount(e.target.value)}
-                    required
-                    disabled={!selectedUser}
-                  />
+              <div style={styles.rechargeSidebarBox}>
+                <div style={styles.rechargeTotalDisplay}>
+                  <div style={styles.rechargeTotalLabel}>Ausgewählte Einzahlung:</div>
+                  <div style={styles.rechargeTotalVal}>
+                    {getRechargeTotal().toFixed(2).replace('.', ',')} €
+                  </div>
                 </div>
-                <button
-                  type="submit"
-                  className="btn btn-accent"
-                  style={{ width: '100%', marginTop: '0.5rem' }}
-                  disabled={!selectedUser}
-                >
-                  {!selectedUser 
-                    ? 'Spieler wählen zum Aufladen' 
-                    : `Guthaben aufladen`}
-                </button>
-              </form>
+
+                {/* Auflistung der gezählten Scheine/Münzen */}
+                {Object.keys(cashCounts).length === 0 ? (
+                  <div style={styles.noCashSelectedText}>
+                    Bitte Scheine und Münzen auf der linken Seite antippen.
+                  </div>
+                ) : (
+                  <div style={styles.cashBreakdownList}>
+                    {Object.entries(cashCounts).map(([val, qty]) => {
+                      const value = parseFloat(val);
+                      const displayVal = value >= 1.0 
+                        ? `${Math.floor(value)} €` 
+                        : `${(value * 100).toFixed(0)} ct`;
+                      return (
+                        <div key={val} style={styles.cashBreakdownItem}>
+                          <span>{qty}x {displayVal}</span>
+                          <span style={{ fontWeight: '600' }}>{(value * qty).toFixed(2).replace('.', ',')} €</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem' }}>
+                  {Object.keys(cashCounts).length > 0 && (
+                    <button
+                      onClick={() => setCashCounts({})}
+                      className="btn btn-secondary"
+                      style={{ flex: 1, padding: '0.5rem' }}
+                    >
+                      Leeren
+                    </button>
+                  )}
+                  <button
+                    onClick={handleRecharge}
+                    className="btn btn-accent"
+                    style={{ flex: 2, padding: '0.5rem' }}
+                    disabled={!selectedUser || getRechargeTotal() <= 0}
+                  >
+                    {!selectedUser 
+                      ? 'Spieler wählen' 
+                      : `Aufladen (${getRechargeTotal().toFixed(2).replace('.', ',')} €)`}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -695,12 +838,163 @@ const styles = {
     color: 'var(--accent)',
     marginTop: '0.5rem',
   },
-  rechargeIntroPanel: {
+  cashPanel: {
     flex: 2.2,
+    minWidth: '400px',
+    textAlign: 'left',
+  },
+  cashSectionHeader: {
+    marginBottom: '1rem',
+  },
+  billsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+    gap: '0.75rem',
+    marginBottom: '1.5rem',
+  },
+  coinsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
+    gap: '0.75rem',
+  },
+  cashTile: {
+    borderRadius: '10px',
+    position: 'relative',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    border: '1px solid var(--border)',
+    transition: 'var(--transition)',
+  },
+  billTile: {
+    minHeight: '85px',
+    boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
+  },
+  coinTile: {
+    aspectRatio: '1',
+    borderRadius: '100px',
+    maxWidth: '85px',
+    margin: '0 auto',
+    boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
+  },
+  cashTileMainBtn: {
+    flex: 1,
+    background: 'none',
+    border: 'none',
+    width: '100%',
+    height: '100%',
+    cursor: 'pointer',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '0.5rem',
+    position: 'relative',
+  },
+  cashTileMinusBtn: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    background: 'rgba(239, 68, 68, 0.9)',
+    color: '#fff',
+    border: 'none',
+    borderTopLeftRadius: '6px',
+    width: '26px',
+    height: '22px',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+    fontSize: '0.9rem',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: '400px',
+    zIndex: 10,
+    transition: 'var(--transition)',
+  },
+  billLabelText: {
+    fontWeight: '800',
+    fontSize: '1.1rem',
+    color: '#fff',
+    textShadow: '1px 1px 3px rgba(0,0,0,0.5)',
+  },
+  billCountBadge: {
+    position: 'absolute',
+    top: '5px',
+    left: '5px',
+    background: '#fff',
+    color: '#000',
+    borderRadius: '50px',
+    padding: '0.1rem 0.4rem',
+    fontSize: '0.75rem',
+    fontWeight: '800',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+  },
+  coinLabelText: {
+    fontWeight: '800',
+    fontSize: '0.85rem',
+    textShadow: '0.5px 0.5px 1px rgba(255,255,255,0.3)',
+  },
+  coinCountBadge: {
+    position: 'absolute',
+    top: '3px',
+    left: '3px',
+    background: 'var(--primary)',
+    color: '#fff',
+    borderRadius: '50px',
+    padding: '0.1rem 0.35rem',
+    fontSize: '0.65rem',
+    fontWeight: '800',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+  },
+  rechargeSidebarBox: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem',
+  },
+  rechargeTotalDisplay: {
+    background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.05) 100%)',
+    border: '1px solid rgba(212, 175, 55, 0.25)',
+    borderRadius: '8px',
+    padding: '1rem',
+    textAlign: 'center',
+  },
+  rechargeTotalLabel: {
+    fontSize: '0.85rem',
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.02em',
+    marginBottom: '0.25rem',
+  },
+  rechargeTotalVal: {
+    fontSize: '1.8rem',
+    fontWeight: '800',
+    color: 'var(--accent)',
+  },
+  noCashSelectedText: {
+    fontSize: '0.85rem',
+    color: 'var(--text-muted)',
+    textAlign: 'center',
+    padding: '1.5rem 0',
+    border: '1px dashed var(--border)',
+    borderRadius: '6px',
+  },
+  cashBreakdownList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.4rem',
+    maxHeight: '150px',
+    overflowY: 'auto',
+    border: '1px solid var(--border)',
+    borderRadius: '6px',
+    padding: '0.5rem 0.75rem',
+    background: 'rgba(255,255,255,0.01)',
+  },
+  cashBreakdownItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    fontSize: '0.85rem',
+    color: 'var(--text-main)',
+    borderBottom: '1px dashed rgba(255,255,255,0.03)',
+    paddingBottom: '0.2rem',
   },
   sidebarPanel: {
     flex: 1.3,
