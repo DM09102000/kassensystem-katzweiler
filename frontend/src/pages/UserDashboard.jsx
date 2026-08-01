@@ -15,14 +15,14 @@ export default function UserDashboard({ token }) {
   const loadData = async () => {
     try {
       // 1. Benutzer laden (enthält self + Kinder)
-      const usersRes = await fetch('http://localhost:5000/api/users', {
+      const usersRes = await fetch('/api/users', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const usersData = await usersRes.json();
       if (!usersRes.ok) throw new Error(usersData.error || 'Fehler beim Laden der Benutzer');
 
       // 2. Transaktionen laden (enthält eigene + Kinder)
-      const txRes = await fetch('http://localhost:5000/api/transactions', {
+      const txRes = await fetch('/api/transactions', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const txData = await txRes.json();
@@ -53,7 +53,7 @@ export default function UserDashboard({ token }) {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/users', {
+      const response = await fetch('/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -84,7 +84,7 @@ export default function UserDashboard({ token }) {
     setSuccess('');
 
     try {
-      const response = await fetch(`http://localhost:5000/api/users/${childId}`, {
+      const response = await fetch(`/api/users/${childId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

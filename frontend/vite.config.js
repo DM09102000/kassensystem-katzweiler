@@ -8,6 +8,12 @@ export default defineConfig({
     host: true,
     watch: {
       usePolling: true
+    },
+    proxy: {
+      '/api': {
+        target: process.env.BACKEND_URL || 'http://localhost:5000',
+        changeOrigin: true,
+      }
     }
   }
 });

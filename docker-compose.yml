@@ -33,6 +33,8 @@ services:
     container_name: kantine-frontend
     ports:
       - "5173:5173"
+    environment:
+      - BACKEND_URL=http://backend:5000
     depends_on:
       - backend
     restart: unless-stopped
@@ -43,7 +45,7 @@ services:
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+      - TUNNEL_TOKEN=eyJhIjoiZDdjZmU3NTYyNzI1MmY0YjA0NzY1Njk1YTlmODdmOGUiLCJ0IjoiY2Y5MTQ1OGUtM2UzYS00N2I4LThkNGYtNThhNGVlMjJlODE4IiwicyI6Ik4ySmxNamc0WldZdFkySTRNeTAwTW1VMUxXRmxPV0V0WW1Wa1l6azFOelZsTkdOayJ9
 
 volumes:
   postgres_data:

@@ -31,7 +31,7 @@ export default function AdminDashboard({ token }) {
   // 1. Benutzer laden
   const loadUsers = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/users', {
+      const res = await fetch('/api/users', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -49,11 +49,11 @@ export default function AdminDashboard({ token }) {
     setLoadingSettlement(true);
     try {
       // Wir holen alle Produkte und Transaktionen für das Datum und bauen die Tabelle in der UI nach
-      const prodRes = await fetch('http://localhost:5000/api/products');
+      const prodRes = await fetch('/api/products');
       const products = await prodRes.json();
       if (!prodRes.ok) throw new Error('Fehler beim Laden der Produkte');
 
-      const txRes = await fetch('http://localhost:5000/api/transactions', {
+      const txRes = await fetch('/api/transactions', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const transactions = await txRes.json();
@@ -123,7 +123,7 @@ export default function AdminDashboard({ token }) {
   // CSV Export starten
   const handleExport = () => {
     window.open(
-      `http://localhost:5000/api/export/settlement?date=${selectedDate}&authorization=Bearer ${token}`,
+      `/api/export/settlement?date=${selectedDate}&authorization=Bearer ${token}`,
       '_blank'
     );
   };
@@ -140,7 +140,7 @@ export default function AdminDashboard({ token }) {
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/users/${chargeUser.id}/charge`, {
+      const res = await fetch(`/api/users/${chargeUser.id}/charge`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -169,8 +169,8 @@ export default function AdminDashboard({ token }) {
 
     try {
       const url = editUser.id
-        ? `http://localhost:5000/api/users/${editUser.id}`
-        : 'http://localhost:5000/api/users';
+        ? `/api/users/${editUser.id}`
+        : '/api/users';
 
       const method = editUser.id ? 'PUT' : 'POST';
 

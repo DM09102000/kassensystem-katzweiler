@@ -46,13 +46,13 @@ export default function PosKiosk({ token }) {
   const loadInitialData = async () => {
     try {
       // 1. Produkte laden
-      const prodRes = await fetch('http://localhost:5000/api/products');
+      const prodRes = await fetch('/api/products');
       const prodData = await prodRes.json();
       if (!prodRes.ok) throw new Error('Fehler beim Laden der Produkte');
       setProducts(prodData);
 
       // 2. Benutzer laden für die Suche
-      const usersRes = await fetch('http://localhost:5000/api/users', {
+      const usersRes = await fetch('/api/users', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const usersData = await usersRes.json();
@@ -132,7 +132,7 @@ export default function PosKiosk({ token }) {
     }));
 
     try {
-      const response = await fetch('http://localhost:5000/api/transactions/checkout', {
+      const response = await fetch('/api/transactions/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -248,7 +248,7 @@ export default function PosKiosk({ token }) {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/users/${selectedUser.id}/charge`, {
+      const response = await fetch(`/api/users/${selectedUser.id}/charge`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -275,7 +275,7 @@ export default function PosKiosk({ token }) {
     setError('');
     setSuccess('');
     try {
-      const response = await fetch(`http://localhost:5000/api/users/${selectedUser.id}/link-hardware`, {
+      const response = await fetch(`/api/users/${selectedUser.id}/link-hardware`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
