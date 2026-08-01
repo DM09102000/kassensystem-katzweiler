@@ -3,30 +3,55 @@ import React, { useState, useRef } from 'react';
 /**
  * ImageCropper — canvas-based modal cropper (no external deps).
  *
- * Key design choice: the inner `wrapperRef` is `display: inline-block`
- * so it matches the image's actual rendered dimensions exactly.
- * Mouse coords and overlay positions are all relative to this wrapper.
- * The image uses `width: auto; max-width: 100%; max-height: 380px` so
- * the browser preserves aspect ratio without distortion.
+ * Props:
+ *   imageSrc    string  — data URL of the raw file
+ *   onConfirm   (base64: string) => void
+ *   onCancel    () => void
+ *   aspectRatio number  — width/height ratio of the output (e.g. 1 for square, 3 for 3:1)
+ *   circular    boolean — render a circular outline (forces 1:1 output)
+ *
+ * Design:
+ *   The inner wrapperRef is display:inline-block so it matches the
+ *   image's actual rendered dimensions exactly — no letterbox offset.
+ *   The image uses width:auto + max-* so the browser preserves aspect
+ *   ratio without distortion.
  */
-export default function ImageCropper({ imageSrc, onConfirm, onCancel, circular = true }) {
-  const wrapperRef = useRef(null); // sized to match image exactly
+export default function ImageCropper({
+  imageSrc,
+  onConfirm,
+  onCancel,
+  aspectRatio = 1,   // width ÷ height
+  circular = false,
+}) {
+  const wrapperRef = useRef(null);
   const imgRef = useRef(null);
   const dragRef = useRef(null);
-  const [crop, setCrop] = useState(null);
+  const [crop, setCrop] = useState(null); // { x, y, w, h }
 
-  /* ── initialise crop after image renders ──────────────────────── */
+  /* ── init crop centered in image ─────────────────────────────── */
   const initCrop = () => {
     const img = imgRef.current;
     if (!img) return;
-    // offsetWidth/Height are the actual rendered pixels (no distortion)
-    const w = img.offsetWidth;
-    const h = img.offsetHeight;
-    const size = Math.floor(Math.min(w, h) * 0.75);
+    const W = img.offsetWidth;
+    const H = img.offsetHeight;
+
+    // Largest crop that fits and matches aspectRatio
+    let cw, ch;
+    if (W / H >= aspectRatio) {
+      // image is wider → constrain by height
+      ch = Math.floor(H * 0.85);
+      cw = Math.floor(ch * aspectRatio);
+    } else {
+      // image is taller → constrain by width
+      cw = Math.floor(W * 0.85);
+      ch = Math.floor(cw / aspectRatio);
+    }
+
     setCrop({
-      x: Math.floor((w - size) / 2),
-      y: Math.floor((h - size) / 2),
-      size,
+      x: Math.floor((W - cw) / 2),
+      y: Math.floor((H - ch) / 2),
+      w: cw,
+      h: ch,
     });
   };
 
@@ -58,38 +83,54 @@ export default function ImageCropper({ imageSrc, onConfirm, onCancel, circular =
 
     if (dragRef.current.type === 'move') {
       setCrop({
-        size: sc.size,
-        x: clamp(sc.x + dx, 0, W - sc.size),
-        y: clamp(sc.y + dy, 0, H - sc.size),
+        w: sc.w, h: sc.h,
+        x: clamp(sc.x + dx, 0, W - sc.w),
+        y: clamp(sc.y + dy, 0, H - sc.h),
       });
     } else {
-      // resize: drag bottom-right corner — average dx/dy keeps it square
-      const delta = (dx + dy) / 2;
-      const newSize = clamp(sc.size + delta, 40, Math.min(W - sc.x, H - sc.y));
-      setCrop({ x: sc.x, y: sc.y, size: newSize });
+      // Resize: drag bottom-right corner.
+      // Use the axis with greater movement to drive scaling,
+      // then derive the other axis from aspectRatio.
+      const dMax = Math.max(Math.abs(dx), Math.abs(dy));
+      const sign = (dx + dy) > 0 ? 1 : -1;
+      const delta = sign * dMax;
+
+      // Try width-driven first
+      let newW = clamp(sc.w + delta, 30, W - sc.x);
+      let newH = Math.round(newW / aspectRatio);
+      if (newH > H - sc.y) {
+        newH = H - sc.y;
+        newW = Math.round(newH * aspectRatio);
+      }
+      newW = Math.max(30, newW);
+      newH = Math.max(Math.round(30 / aspectRatio), newH);
+
+      setCrop({ x: sc.x, y: sc.y, w: newW, h: newH });
     }
   };
 
   const stopDrag = () => { dragRef.current = null; };
 
-  /* ── export cropped region via canvas ─────────────────────────── */
+  /* ── export via canvas ────────────────────────────────────────── */
   const handleConfirm = () => {
     const img = imgRef.current;
     if (!img || !crop) return;
 
-    // Scale factors: natural size ÷ displayed size
     const scaleX = img.naturalWidth / img.offsetWidth;
     const scaleY = img.naturalHeight / img.offsetHeight;
 
-    const OUT = 400;
+    // Output canvas matches the display aspect ratio
+    const OUT_W = 800;
+    const OUT_H = Math.round(OUT_W / aspectRatio);
+
     const canvas = document.createElement('canvas');
-    canvas.width = OUT;
-    canvas.height = OUT;
+    canvas.width = OUT_W;
+    canvas.height = OUT_H;
     const ctx = canvas.getContext('2d');
 
     if (circular) {
       ctx.beginPath();
-      ctx.arc(OUT / 2, OUT / 2, OUT / 2, 0, Math.PI * 2);
+      ctx.arc(OUT_W / 2, OUT_H / 2, Math.min(OUT_W, OUT_H) / 2, 0, Math.PI * 2);
       ctx.clip();
     }
 
@@ -97,9 +138,9 @@ export default function ImageCropper({ imageSrc, onConfirm, onCancel, circular =
       img,
       Math.round(crop.x * scaleX),
       Math.round(crop.y * scaleY),
-      Math.round(crop.size * scaleX),
-      Math.round(crop.size * scaleY),
-      0, 0, OUT, OUT
+      Math.round(crop.w * scaleX),
+      Math.round(crop.h * scaleY),
+      0, 0, OUT_W, OUT_H
     );
 
     onConfirm(canvas.toDataURL('image/jpeg', 0.88));
@@ -119,7 +160,7 @@ export default function ImageCropper({ imageSrc, onConfirm, onCancel, circular =
         border: '1px solid rgba(255,255,255,0.1)',
         borderRadius: '16px',
         padding: '1.5rem',
-        width: '100%', maxWidth: '540px',
+        width: '100%', maxWidth: '560px',
         display: 'flex', flexDirection: 'column', gap: '1rem',
         boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
       }}>
@@ -128,7 +169,7 @@ export default function ImageCropper({ imageSrc, onConfirm, onCancel, circular =
             📷 Bildausschnitt wählen
           </h3>
           <p style={{ margin: '0.35rem 0 0', fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>
-            Rahmen verschieben • Ecke <strong>↘</strong> ziehen zum Vergrößern/Verkleinern
+            Rahmen verschieben&nbsp;•&nbsp;Ecke <strong style={{ color: 'var(--accent,#d4af37)' }}>↘</strong> ziehen zum Skalieren
           </p>
         </div>
 
@@ -139,12 +180,12 @@ export default function ImageCropper({ imageSrc, onConfirm, onCancel, circular =
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          minHeight: '80px',
           padding: '8px',
+          minHeight: '80px',
         }}>
           {/*
-            Inner wrapper: display:inline-block makes it exactly the size
-            of the image — no letterbox / empty space to mess up coords.
+            Inner wrapper: inline-block → exactly matches rendered image size.
+            position:relative needed so absolute children use this as origin.
           */}
           <div
             ref={wrapperRef}
@@ -169,11 +210,10 @@ export default function ImageCropper({ imageSrc, onConfirm, onCancel, circular =
               alt=""
               style={{
                 display: 'block',
-                /* width:auto preserves aspect ratio; max-* constrain size */
                 width: 'auto',
                 height: 'auto',
                 maxWidth: '100%',
-                maxHeight: '380px',
+                maxHeight: '420px',
               }}
               draggable={false}
             />
@@ -185,25 +225,25 @@ export default function ImageCropper({ imageSrc, onConfirm, onCancel, circular =
                 <div style={{
                   position: 'absolute', left: 0, top: 0,
                   width: '100%', height: crop.y,
-                  background: 'rgba(0,0,0,0.6)', pointerEvents: 'none',
+                  background: 'rgba(0,0,0,0.65)', pointerEvents: 'none',
                 }} />
                 {/* bottom */}
                 <div style={{
-                  position: 'absolute', left: 0, top: crop.y + crop.size,
-                  width: '100%', height: `calc(100% - ${crop.y + crop.size}px)`,
-                  background: 'rgba(0,0,0,0.6)', pointerEvents: 'none',
+                  position: 'absolute', left: 0, top: crop.y + crop.h,
+                  width: '100%', height: `calc(100% - ${crop.y + crop.h}px)`,
+                  background: 'rgba(0,0,0,0.65)', pointerEvents: 'none',
                 }} />
                 {/* left */}
                 <div style={{
                   position: 'absolute', left: 0, top: crop.y,
-                  width: crop.x, height: crop.size,
-                  background: 'rgba(0,0,0,0.6)', pointerEvents: 'none',
+                  width: crop.x, height: crop.h,
+                  background: 'rgba(0,0,0,0.65)', pointerEvents: 'none',
                 }} />
                 {/* right */}
                 <div style={{
-                  position: 'absolute', left: crop.x + crop.size, top: crop.y,
-                  right: 0, height: crop.size,
-                  background: 'rgba(0,0,0,0.6)', pointerEvents: 'none',
+                  position: 'absolute', left: crop.x + crop.w, top: crop.y,
+                  right: 0, height: crop.h,
+                  background: 'rgba(0,0,0,0.65)', pointerEvents: 'none',
                 }} />
 
                 {/* ── crop frame ── */}
@@ -211,9 +251,9 @@ export default function ImageCropper({ imageSrc, onConfirm, onCancel, circular =
                   style={{
                     position: 'absolute',
                     left: crop.x, top: crop.y,
-                    width: crop.size, height: crop.size,
+                    width: crop.w, height: crop.h,
                     border: '2px solid var(--accent, #d4af37)',
-                    borderRadius: circular ? '50%' : '4px',
+                    borderRadius: circular ? '50%' : '3px',
                     boxSizing: 'border-box',
                     cursor: 'move',
                   }}
@@ -249,18 +289,18 @@ export default function ImageCropper({ imageSrc, onConfirm, onCancel, circular =
                     }} />
                   ))}
 
-                  {/* Resize handle */}
+                  {/* Resize handle — bottom-right */}
                   <div
                     style={{
-                      position: 'absolute', right: -10, bottom: -10,
-                      width: 22, height: 22,
+                      position: 'absolute', right: -11, bottom: -11,
+                      width: 24, height: 24,
                       background: 'var(--accent, #d4af37)',
-                      borderRadius: '4px',
+                      borderRadius: '5px',
                       cursor: 'nwse-resize',
                       zIndex: 5,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '0.75rem', color: '#000', fontWeight: '900',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+                      fontSize: '0.8rem', color: '#000', fontWeight: '900',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
                     }}
                     onMouseDown={(e) => { e.stopPropagation(); startDrag(e, 'resize'); }}
                     onTouchStart={(e) => { e.stopPropagation(); startDrag(e, 'resize'); }}
@@ -273,7 +313,14 @@ export default function ImageCropper({ imageSrc, onConfirm, onCancel, circular =
           </div>
         </div>
 
-        {/* ── action buttons ── */}
+        {/* Aspect ratio hint */}
+        <p style={{ margin: 0, fontSize: '0.75rem', color: 'rgba(255,255,255,0.35)', textAlign: 'center' }}>
+          {circular
+            ? 'Kreiszuschnitt 1:1 — wie das Profilbild angezeigt wird'
+            : `Seitenverhältnis ${aspectRatio % 1 === 0 ? aspectRatio + ':1' : aspectRatio.toFixed(2) + ':1'} — wie das Bild angezeigt wird`}
+        </p>
+
+        {/* Buttons */}
         <div style={{ display: 'flex', gap: '0.75rem' }}>
           <button
             onClick={onCancel}

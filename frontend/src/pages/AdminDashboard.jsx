@@ -460,6 +460,7 @@ export default function AdminDashboard({ token }) {
           imageSrc={productCropperSrc}
           onConfirm={handleProductCropConfirm}
           onCancel={() => setProductCropperSrc(null)}
+          aspectRatio={3}
           circular={false}
         />
       )}

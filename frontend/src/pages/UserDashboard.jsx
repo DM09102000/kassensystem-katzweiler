@@ -156,6 +156,7 @@ export default function UserDashboard({ token }) {
           imageSrc={cropperState.src}
           onConfirm={handleCropConfirm}
           onCancel={() => setCropperState(null)}
+          aspectRatio={1}
           circular={true}
         />
       )}
