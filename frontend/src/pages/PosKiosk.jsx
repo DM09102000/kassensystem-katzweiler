@@ -40,6 +40,9 @@ export default function PosKiosk({ token }) {
   // Produktkategorie Filter für Kacheln
   const [activeCategory, setActiveCategory] = useState('Alle');
 
+  // Modal für Zahlung/Identifikation bei Klick auf "Buchen"
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+
   const loadInitialData = async () => {
     try {
       // 1. Produkte laden
@@ -116,44 +119,11 @@ export default function PosKiosk({ token }) {
     return cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   };
 
-  // Hardware Simulationen
-  const simulateNfcScan = (nfcId) => {
-    setError('');
-    setSuccess('');
-    const user = users.find((u) => u.nfc_id === nfcId);
-    if (user) {
-      setSelectedUser(user);
-      setSuccess(`NFC-Tag gescannt: ${user.name} identifiziert!`);
-    } else {
-      setError(`NFC-Tag ID "${nfcId}" ist keinem Benutzer zugeordnet.`);
-    }
-  };
-
-  const simulateFingerprintScan = (fpId) => {
-    setError('');
-    setSuccess('');
-    const user = users.find((u) => u.fingerprint_id === fpId);
-    if (user) {
-      setSelectedUser(user);
-      setSuccess(`Fingerabdruck gescannt: ${user.name} identifiziert!`);
-    } else {
-      setError(`Fingerabdruck-ID "${fpId}" ist keinem Benutzer zugeordnet.`);
-    }
-  };
-
-  // Checkout buchen
-  const handleCheckout = async () => {
-    setError('');
-    setSuccess('');
-
-    if (!selectedUser) {
-      setError('Bitte wählen Sie zuerst einen Benutzer aus.');
-      return;
-    }
-
+  // Helper für die Buchungsdurchführung
+  const performCheckout = async (user) => {
     if (cart.length === 0) {
       setError('Der Warenkorb ist leer.');
-      return;
+      return false;
     }
 
     const items = cart.map((item) => ({
@@ -168,19 +138,74 @@ export default function PosKiosk({ token }) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ userId: selectedUser.id, items }),
+        body: JSON.stringify({ userId: user.id, items }),
       });
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Fehler beim Kaufvorgang');
 
-      setSuccess(`Kauf erfolgreich gebucht für ${selectedUser.name}! Neues Guthaben: ${data.newBalance.toFixed(2).replace('.', ',')} €`);
+      setSuccess(`Kauf erfolgreich gebucht für ${user.name}! Neues Guthaben: ${data.newBalance.toFixed(2).replace('.', ',')} €`);
       clearCart();
       setSelectedUser(null);
       setSearchQuery('');
+      setShowCheckoutModal(false);
       loadInitialData(); // Kontostände aktualisieren
+      return true;
     } catch (err) {
       setError(err.message);
+      return false;
+    }
+  };
+
+  // Hardware Simulationen
+  const simulateNfcScan = async (nfcId) => {
+    setError('');
+    setSuccess('');
+    const user = users.find((u) => u.nfc_id === nfcId);
+    if (user) {
+      if (showCheckoutModal) {
+        await performCheckout(user);
+      } else {
+        setSelectedUser(user);
+        setSuccess(`NFC-Tag gescannt: ${user.name} identifiziert!`);
+      }
+    } else {
+      setError(`NFC-Tag ID "${nfcId}" ist keinem Benutzer zugeordnet.`);
+    }
+  };
+
+  const simulateFingerprintScan = async (fpId) => {
+    setError('');
+    setSuccess('');
+    const user = users.find((u) => u.fingerprint_id === fpId);
+    if (user) {
+      if (showCheckoutModal) {
+        await performCheckout(user);
+      } else {
+        setSelectedUser(user);
+        setSuccess(`Fingerabdruck gescannt: ${user.name} identifiziert!`);
+      }
+    } else {
+      setError(`Fingerabdruck-ID "${fpId}" ist keinem Benutzer zugeordnet.`);
+    }
+  };
+
+  // Checkout buchen
+  const handleCheckout = async () => {
+    setError('');
+    setSuccess('');
+
+    if (cart.length === 0) {
+      setError('Der Warenkorb ist leer.');
+      return;
+    }
+
+    if (!selectedUser) {
+      // Wenn kein Spieler vorab ausgewählt wurde, öffne das Zahlungs-Modal
+      setShowCheckoutModal(true);
+    } else {
+      // Wenn bereits gewählt, direkt buchen
+      await performCheckout(selectedUser);
     }
   };
 
@@ -665,11 +690,8 @@ export default function PosKiosk({ token }) {
                     onClick={handleCheckout}
                     className="btn btn-accent"
                     style={styles.checkoutBtn}
-                    disabled={!selectedUser}
                   >
-                    {!selectedUser 
-                      ? 'Spieler wählen zum Buchen' 
-                      : `Kauf buchen (${getCartTotal().toFixed(2).replace('.', ',')} €)`}
+                    Kauf buchen ({getCartTotal().toFixed(2).replace('.', ',')} €)
                   </button>
                 </div>
               )}
@@ -735,6 +757,117 @@ export default function PosKiosk({ token }) {
 
         </div>
       </div>
+
+      {/* CHECKOUT MODAL: SPIELER IDENTIFIZIEREN (NFC / FP / SUCHE) */}
+      {showCheckoutModal && (
+        <div style={styles.modalOverlay}>
+          <div className="card" style={styles.modalCard}>
+            <div style={styles.modalHeader}>
+              <h2 style={{ color: 'var(--accent)', fontSize: '1.4rem' }}>🔒 Zahlung autorisieren</h2>
+              <button 
+                onClick={() => {
+                  setShowCheckoutModal(false);
+                  setError('');
+                }} 
+                style={styles.modalCloseBtn}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div style={styles.modalBody}>
+              <div style={styles.modalTotalDisplay}>
+                <span>Zu zahlender Betrag:</span>
+                <strong style={styles.modalTotalValue}>
+                  {getCartTotal().toFixed(2).replace('.', ',')} €
+                </strong>
+              </div>
+
+              {error && (
+                <div style={styles.modalErrorAlert}>
+                  ⚠️ {error}
+                </div>
+              )}
+
+              <p style={styles.modalInstruction}>
+                Bitte NFC-Chip an das Lesegerät halten oder den Finger auf den Scanner legen.
+              </p>
+
+              {/* Hardware-Simulations-Tasten im Modal */}
+              <div style={styles.modalScannerSimBox}>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: '600' }}>
+                  SIMULIERE HARDWARE-SCAN:
+                </div>
+                <div style={styles.modalSimBtnGrid}>
+                  <button
+                    onClick={() => simulateNfcScan('NFC_MORITZ_123')}
+                    className="btn btn-secondary"
+                    style={styles.modalSimBtn}
+                  >
+                    💳 Scan NFC (Moritz - Limit 10€)
+                  </button>
+                  <button
+                    onClick={() => simulateNfcScan('NFC_MIA_456')}
+                    className="btn btn-secondary"
+                    style={styles.modalSimBtn}
+                  >
+                    💳 Scan NFC (Mia - Limit 5€)
+                  </button>
+                  <button
+                    onClick={() => simulateFingerprintScan('FP_MAX_123')}
+                    className="btn btn-secondary"
+                    style={styles.modalSimBtn}
+                  >
+                    ☝ Scan Finger (Max - Elternkonto)
+                  </button>
+                  <button
+                    onClick={() => simulateNfcScan('NFC_UNKNOWN_999')}
+                    className="btn btn-secondary"
+                    style={{ ...styles.modalSimBtn, color: 'var(--danger)' }}
+                  >
+                    ⚠️ Unbekannter NFC-Chip
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ margin: '1.5rem 0', height: '1px', background: 'rgba(255,255,255,0.08)' }}></div>
+
+              <div style={{ textAlign: 'left' }}>
+                <label className="form-label" style={{ fontSize: '0.9rem' }}>Oder Spieler manuell suchen und buchen:</label>
+                <div className="form-group" style={{ position: 'relative', marginTop: '0.35rem' }}>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Name eingeben..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  {searchResults.length > 0 && (
+                    <div style={styles.searchResultsDropdown}>
+                      {searchResults.map((u) => (
+                        <button
+                          key={u.id}
+                          onClick={async () => {
+                            setSearchResults([]);
+                            await performCheckout(u);
+                          }}
+                          style={styles.dropdownItem}
+                        >
+                          <div>
+                            <strong>{u.name}</strong>
+                            {u.parent_name && <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}> (Kind)</span>}
+                          </div>
+                          <span>{u.balance.toFixed(2).replace('.', ',')} €</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1277,5 +1410,93 @@ const styles = {
     border: '1px solid rgba(16, 185, 129, 0.3)',
     borderRadius: '8px',
     padding: '0.75rem 1rem',
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(0, 0, 0, 0.75)',
+    backdropFilter: 'blur(8px)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: '500px',
+    background: 'rgba(30, 20, 24, 0.95)',
+    border: '1px solid rgba(212, 175, 55, 0.25)',
+    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
+    padding: '1.75rem',
+    borderRadius: 'var(--radius-md)',
+  },
+  modalHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+    paddingBottom: '0.75rem',
+    marginBottom: '1rem',
+  },
+  modalCloseBtn: {
+    background: 'none',
+    border: 'none',
+    color: 'var(--text-muted)',
+    fontSize: '1.25rem',
+    cursor: 'pointer',
+  },
+  modalBody: {
+    textAlign: 'center',
+  },
+  modalTotalDisplay: {
+    background: 'rgba(255, 255, 255, 0.03)',
+    border: '1px solid var(--border)',
+    borderRadius: '8px',
+    padding: '1rem',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '1.25rem',
+  },
+  modalTotalValue: {
+    fontSize: '1.6rem',
+    color: 'var(--accent)',
+  },
+  modalErrorAlert: {
+    background: 'rgba(239, 68, 68, 0.15)',
+    color: '#fc8181',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    borderRadius: '8px',
+    padding: '0.75rem',
+    marginBottom: '1rem',
+    textAlign: 'left',
+    fontSize: '0.9rem',
+  },
+  modalInstruction: {
+    fontSize: '0.95rem',
+    lineHeight: '1.4',
+    marginBottom: '1.25rem',
+    color: '#eee',
+  },
+  modalScannerSimBox: {
+    background: 'rgba(255, 255, 255, 0.02)',
+    border: '1px dashed rgba(255, 255, 255, 0.1)',
+    borderRadius: '8px',
+    padding: '1rem',
+    textAlign: 'left',
+  },
+  modalSimBtnGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr',
+    gap: '0.5rem',
+    marginTop: '0.5rem',
+  },
+  modalSimBtn: {
+    padding: '0.5rem 0.75rem',
+    fontSize: '0.8rem',
+    textAlign: 'left',
   },
 };
