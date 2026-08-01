@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ImageCropper from '../components/ImageCropper';
 
 export default function AdminDashboard({ token }) {
   const [users, setUsers] = useState([]);
@@ -38,6 +39,7 @@ export default function AdminDashboard({ token }) {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [isEditingProduct, setIsEditingProduct] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
+  const [productCropperSrc, setProductCropperSrc] = useState(null);
 
   // Suche, Filter, Sortierung States
   const [searchTerm, setSearchTerm] = useState('');
@@ -171,17 +173,16 @@ export default function AdminDashboard({ token }) {
 
   const handleProductImageChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (file.size > 200 * 1024) {
-        alert('Das Bild ist zu groß! Bitte laden Sie ein Bild unter 200 KB hoch.');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditProduct({ ...editProduct, image_url: reader.result });
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => setProductCropperSrc(reader.result);
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleProductCropConfirm = (croppedBase64) => {
+    setEditProduct(prev => ({ ...prev, image_url: croppedBase64 }));
+    setProductCropperSrc(null);
   };
 
   const handleSaveProduct = async (e) => {
@@ -453,6 +454,16 @@ export default function AdminDashboard({ token }) {
 
   return (
     <div className="animated">
+      {/* Image Cropper Modal (Produktbild) */}
+      {productCropperSrc && (
+        <ImageCropper
+          imageSrc={productCropperSrc}
+          onConfirm={handleProductCropConfirm}
+          onCancel={() => setProductCropperSrc(null)}
+          circular={false}
+        />
+      )}
+
       <div style={styles.header}>
         <h1>Admin-Bereich</h1>
         <p>Tagesabrechnungen einsehen und Benutzerkonten verwalten.</p>

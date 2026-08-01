@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ImageCropper from '../components/ImageCropper';
 
 export default function UserDashboard({ token }) {
   const [users, setUsers] = useState([]); // Eigener Account + Kinder
@@ -10,6 +11,7 @@ export default function UserDashboard({ token }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(true);
+  const [cropperState, setCropperState] = useState(null); // { src, userId }
 
   // Daten laden
   const loadData = async () => {
@@ -107,39 +109,36 @@ export default function UserDashboard({ token }) {
     }
   };
 
-  // Avatar hochladen
-  const handleAvatarChange = async (e, userId) => {
+  // Avatar: Datei einlesen → Cropper öffnen
+  const handleAvatarChange = (e, userId) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    if (file.size > 200 * 1024) {
-      alert('Das Profilbild ist zu groß! Bitte wählen Sie ein Bild unter 200 KB.');
-      return;
-    }
-
     const reader = new FileReader();
-    reader.onloadend = async () => {
-      setError('');
-      setSuccess('');
-      try {
-        const res = await fetch(`/api/users/${userId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ avatar_url: reader.result })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Fehler beim Speichern des Profilbilds');
-
-        setSuccess(`Profilbild für ${data.name} erfolgreich aktualisiert.`);
-        loadData();
-      } catch (err) {
-        setError(err.message);
-      }
-    };
+    reader.onloadend = () => setCropperState({ src: reader.result, userId });
     reader.readAsDataURL(file);
+    // Reset input so dasselbe Bild erneut gewählt werden kann
+    e.target.value = '';
+  };
+
+  // Avatar: Cropper bestätigt → API-Call
+  const handleCropConfirm = async (croppedBase64) => {
+    const { userId } = cropperState;
+    setCropperState(null);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ avatar_url: croppedBase64 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Fehler beim Speichern des Profilbilds');
+      setSuccess(`Profilbild für ${data.name} erfolgreich aktualisiert.`);
+      loadData();
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   if (loading) {
@@ -151,6 +150,16 @@ export default function UserDashboard({ token }) {
 
   return (
     <div className="animated">
+      {/* Image Cropper Modal (Avatar) */}
+      {cropperState && (
+        <ImageCropper
+          imageSrc={cropperState.src}
+          onConfirm={handleCropConfirm}
+          onCancel={() => setCropperState(null)}
+          circular={true}
+        />
+      )}
+
       <div style={styles.header}>
         <h1>Mein Prepaid-Konto</h1>
         <p>Verwalte dein Guthaben, deine Einkäufe und die Accounts deiner Kinder.</p>
