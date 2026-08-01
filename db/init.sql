@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
     balance DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     parent_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'user', -- 'admin', 'pos', 'user'
+    daily_limit DECIMAL(10, 2) DEFAULT NULL,   -- Tageslimit für Kinder
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -89,9 +90,9 @@ INSERT INTO users (name, username, password_hash, role, balance) VALUES
 ('Erika Mustermann', 'erika', '$2a$10$Z8BsNRUddtWEPyoGGXNaOux7GtYE0lLeDHgOr/W18JaZCOD2i2n0m', 'user', 75.50);
 
 -- Kinder für Max Mustermann (User ID 3)
-INSERT INTO users (name, username, password_hash, role, balance, parent_id, nfc_id, fingerprint_id) VALUES
-('Moritz Mustermann (Kind)', NULL, NULL, 'user', 15.00, 3, 'NFC_MORITZ_123', 'FP_MORITZ_456'),
-('Mia Mustermann (Kind)', NULL, NULL, 'user', 10.00, 3, 'NFC_MIA_123', NULL);
+INSERT INTO users (name, username, password_hash, role, balance, parent_id, nfc_id, fingerprint_id, daily_limit) VALUES
+('Moritz Mustermann (Kind)', NULL, NULL, 'user', 0.00, 3, 'NFC_MORITZ_123', 'FP_MORITZ_456', 10.00),
+('Mia Mustermann (Kind)', NULL, NULL, 'user', 0.00, 3, 'NFC_MIA_123', NULL, 5.00);
 
 -- Einige Transaktionen vorgenerieren für die Demo
 -- Max lädt 50 Euro auf

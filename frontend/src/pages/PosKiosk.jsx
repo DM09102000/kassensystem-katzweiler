@@ -210,6 +210,34 @@ export default function PosKiosk({ token }) {
     }
   };
 
+  // Hardware verknüpfen (POS/Admin)
+  const handleLinkHardware = async (nfcId, fpId) => {
+    setError('');
+    setSuccess('');
+    try {
+      const response = await fetch(`http://localhost:5000/api/users/${selectedUser.id}/link-hardware`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          nfc_id: nfcId,
+          fingerprint_id: fpId
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Fehler beim Verknüpfen der Hardware');
+
+      setSuccess('Hardware-Verknüpfung erfolgreich aktualisiert!');
+      setSelectedUser(data.user);
+      loadInitialData(); // Aktualisiere die lokale Benutzerliste
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   if (loading) {
     return <div style={{ textAlign: 'center', padding: '3rem' }}>Lade Kassen-Terminal...</div>;
   }
@@ -315,33 +343,102 @@ export default function PosKiosk({ token }) {
             <h2 style={styles.cardHeaderTitle}>👤 Spieler identifizieren</h2>
             
             {selectedUser ? (
-              <div style={styles.identifiedUserBox}>
-                <div style={styles.userAvatar}>
-                  {selectedUser.name.charAt(0)}
-                </div>
-                <div style={styles.userIdentDetails}>
-                  <div style={styles.selectedName}>{selectedUser.name}</div>
-                  <div style={styles.selectedBalanceLabel}>
-                    Aktuelles Guthaben: <strong style={{ color: 'var(--accent)' }}>
-                      {selectedUser.balance.toFixed(2).replace('.', ',')} €
-                    </strong>
+              <div style={styles.identifiedUserBoxContainer}>
+                <div style={styles.identifiedUserBox}>
+                  <div style={styles.userAvatar}>
+                    {selectedUser.name.charAt(0)}
                   </div>
-                  {selectedUser.parent_name && (
-                    <div style={styles.parentLinkText}>
-                      Familie: {selectedUser.parent_name}
-                    </div>
-                  )}
+                  <div style={styles.userIdentDetails}>
+                    <div style={styles.selectedName}>{selectedUser.name}</div>
+                    
+                    {selectedUser.parent_id ? (
+                      <>
+                        <div style={styles.parentLinkText}>
+                          👪 Kind-Account (Gemeinsames Guthaben)
+                        </div>
+                        <div style={styles.selectedBalanceLabel}>
+                          Eltern-Guthaben ({selectedUser.parent_name}): <strong style={{ color: 'var(--accent)' }}>
+                            {selectedUser.balance.toFixed(2).replace('.', ',')} €
+                          </strong>
+                        </div>
+                        <div style={styles.limitInfoText}>
+                          Tageslimit: <strong>{selectedUser.daily_limit !== null ? `${selectedUser.daily_limit.toFixed(2).replace('.', ',')} €` : 'Unbegrenzt'}</strong>
+                          <br />
+                          Heute verbraucht: <strong style={{ color: selectedUser.spent_today >= (selectedUser.daily_limit || Infinity) ? 'var(--danger)' : 'var(--success)' }}>
+                            {selectedUser.spent_today.toFixed(2).replace('.', ',')} €
+                          </strong>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={styles.selectedBalanceLabel}>
+                        Aktuelles Guthaben: <strong style={{ color: 'var(--accent)' }}>
+                          {selectedUser.balance.toFixed(2).replace('.', ',')} €
+                        </strong>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedUser(null);
+                      setSearchQuery('');
+                    }}
+                    style={styles.removeUserBtn}
+                    title="Auswahl aufheben"
+                  >
+                    ✕
+                  </button>
                 </div>
-                <button
-                  onClick={() => {
-                    setSelectedUser(null);
-                    setSearchQuery('');
-                  }}
-                  style={styles.removeUserBtn}
-                  title="Auswahl aufheben"
-                >
-                  ✕
-                </button>
+
+                {/* KASSEN HARDWARE-REGISTRIERUNG VOR ORT */}
+                <div style={styles.hardwareRegistrationBox}>
+                  <div style={styles.hardwareSectionTitle}>📟 Vor-Ort Hardware verknüpfen</div>
+                  
+                  <div style={styles.hardwareRow}>
+                    <span>NFC-Tag:</span>
+                    {selectedUser.nfc_id ? (
+                      <div style={styles.hardwareStatusActive}>
+                        <span style={styles.hardwareIdText}>Aktiv ({selectedUser.nfc_id})</span>
+                        <button
+                          onClick={() => handleLinkHardware(null, undefined)}
+                          style={styles.unlinkBtn}
+                        >
+                          Löschen
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleLinkHardware(`NFC_${selectedUser.name.split(' ')[0].toUpperCase()}_${Math.floor(Math.random() * 900 + 100)}`, undefined)}
+                        className="btn btn-secondary"
+                        style={styles.linkBtn}
+                      >
+                        Scan & Verknüpfen
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={styles.hardwareRow}>
+                    <span>Fingerprint:</span>
+                    {selectedUser.fingerprint_id ? (
+                      <div style={styles.hardwareStatusActive}>
+                        <span style={styles.hardwareIdText}>Aktiv ({selectedUser.fingerprint_id})</span>
+                        <button
+                          onClick={() => handleLinkHardware(undefined, null)}
+                          style={styles.unlinkBtn}
+                        >
+                          Löschen
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleLinkHardware(undefined, `FP_${selectedUser.name.split(' ')[0].toUpperCase()}_${Math.floor(Math.random() * 900 + 100)}`)}
+                        className="btn btn-secondary"
+                        style={styles.linkBtn}
+                      >
+                        Scan & Verknüpfen
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             ) : (
               <div>
@@ -671,6 +768,61 @@ const styles = {
     position: 'absolute',
     top: '0.5rem',
     right: '0.5rem',
+  },
+  identifiedUserBoxContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem',
+  },
+  limitInfoText: {
+    fontSize: '0.8rem',
+    color: '#eee',
+    marginTop: '0.35rem',
+    lineHeight: '1.4',
+  },
+  hardwareRegistrationBox: {
+    background: 'rgba(255, 255, 255, 0.03)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm)',
+    padding: '0.75rem 1rem',
+  },
+  hardwareSectionTitle: {
+    fontSize: '0.8rem',
+    fontWeight: '600',
+    color: 'var(--accent)',
+    textTransform: 'uppercase',
+    marginBottom: '0.5rem',
+    letterSpacing: '0.03em',
+  },
+  hardwareRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '0.4rem 0',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
+    fontSize: '0.85rem',
+  },
+  hardwareStatusActive: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  },
+  hardwareIdText: {
+    fontSize: '0.8rem',
+    color: 'var(--success)',
+    fontWeight: '600',
+  },
+  unlinkBtn: {
+    background: 'none',
+    border: 'none',
+    color: 'var(--danger)',
+    fontSize: '0.75rem',
+    cursor: 'pointer',
+    fontWeight: '600',
+  },
+  linkBtn: {
+    padding: '0.25rem 0.5rem',
+    fontSize: '0.75rem',
   },
   searchResultsDropdown: {
     position: 'absolute',

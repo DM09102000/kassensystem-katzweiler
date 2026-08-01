@@ -22,6 +22,7 @@ export default function AdminDashboard({ token }) {
     nfc_id: '',
     fingerprint_id: '',
     parent_id: '',
+    daily_limit: '',
   });
 
   const [error, setError] = useState('');
@@ -180,6 +181,7 @@ export default function AdminDashboard({ token }) {
         nfc_id: editUser.nfc_id || null,
         fingerprint_id: editUser.fingerprint_id || null,
         parent_id: editUser.parent_id ? parseInt(editUser.parent_id, 10) : null,
+        daily_limit: editUser.daily_limit === '' || editUser.daily_limit === null ? null : parseFloat(editUser.daily_limit),
       };
 
       if (editUser.password) {
@@ -209,6 +211,7 @@ export default function AdminDashboard({ token }) {
         nfc_id: '',
         fingerprint_id: '',
         parent_id: '',
+        daily_limit: '',
       });
       loadUsers();
     } catch (err) {
@@ -226,6 +229,7 @@ export default function AdminDashboard({ token }) {
       nfc_id: user.nfc_id || '',
       fingerprint_id: user.fingerprint_id || '',
       parent_id: user.parent_id || '',
+      daily_limit: user.daily_limit !== null ? user.daily_limit.toString() : '',
     });
     setIsEditing(true);
   };
@@ -353,6 +357,7 @@ export default function AdminDashboard({ token }) {
                   nfc_id: '',
                   fingerprint_id: '',
                   parent_id: '',
+                  daily_limit: '',
                 });
                 setIsEditing(true);
               }}
@@ -493,6 +498,21 @@ export default function AdminDashboard({ token }) {
                     />
                   </div>
 
+                  {editUser.parent_id && (
+                    <div className="form-group">
+                      <label className="form-label">Tageslimit in € (Optional)</label>
+                      <input
+                        type="number"
+                        step="0.50"
+                        min="0"
+                        className="input-field"
+                        placeholder="z.B. 5,00 (leer für unbegrenzt)"
+                        value={editUser.daily_limit}
+                        onChange={(e) => setEditUser({ ...editUser, daily_limit: e.target.value })}
+                      />
+                    </div>
+                  )}
+
                   <div style={styles.overlayButtons}>
                     <button type="button" onClick={() => setIsEditing(false)} className="btn btn-secondary">
                       Abbrechen
@@ -560,15 +580,15 @@ export default function AdminDashboard({ token }) {
                           <div key={child.id} style={styles.childRow}>
                             <div style={styles.userInfoCol}>
                               <span style={styles.childUserName}>↳ {child.name}</span>
-                              <div style={styles.subInfoLabel} style={{ marginLeft: '1rem', fontSize: '0.75rem' }}>
-                                <span>Verknüpft mit {parent.name}</span>
+                              <div style={{ ...styles.subInfoLabel, marginLeft: '1rem', fontSize: '0.75rem' }}>
+                                <span>Limit: {child.daily_limit !== null ? `${child.daily_limit.toFixed(2).replace('.', ',')} €` : 'Unbegrenzt'} (Heute: {child.spent_today.toFixed(2).replace('.', ',')} €)</span>
                                 {child.nfc_id && <span style={styles.idBadge}>NFC</span>}
                                 {child.fingerprint_id && <span style={styles.idBadge}>FP</span>}
                               </div>
                             </div>
                             <div style={styles.actionCol}>
                               <span style={styles.childUserBalance}>
-                                {child.balance.toFixed(2).replace('.', ',')} €
+                                {parent.balance.toFixed(2).replace('.', ',')} €
                               </span>
                               <button
                                 onClick={() => {
@@ -577,7 +597,7 @@ export default function AdminDashboard({ token }) {
                                 }}
                                 className="btn btn-accent"
                                 style={styles.actionIconBtn}
-                                title="Guthaben aufladen"
+                                title="Eltern-Guthaben aufladen"
                               >
                                 💶
                               </button>
@@ -693,12 +713,6 @@ const styles = {
     alignItems: 'center',
     padding: '0.5rem 1rem 0.5rem 2rem',
     borderBottom: '1px solid rgba(255, 255, 255, 0.02)',
-  },
-  childRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '0.5rem 1rem 0.5rem 2rem',
   },
   userInfoCol: {
     display: 'flex',

@@ -4,8 +4,9 @@ export default function UserDashboard({ token }) {
   const [users, setUsers] = useState([]); // Eigener Account + Kinder
   const [transactions, setTransactions] = useState([]);
   const [newChildName, setNewChildName] = useState('');
-  const [newChildNfc, setNewChildNfc] = useState('');
-  const [newChildFp, setNewChildFp] = useState('');
+  const [newChildLimit, setNewChildLimit] = useState('');
+  const [editingChildId, setEditingChildId] = useState(null);
+  const [editingChildLimit, setEditingChildLimit] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(true);
@@ -60,8 +61,7 @@ export default function UserDashboard({ token }) {
         },
         body: JSON.stringify({
           name: newChildName,
-          nfc_id: newChildNfc || null,
-          fingerprint_id: newChildFp || null,
+          daily_limit: newChildLimit === '' ? null : parseFloat(newChildLimit),
         }),
       });
 
@@ -70,9 +70,38 @@ export default function UserDashboard({ token }) {
 
       setSuccess(`Kinder-Account für ${data.name} erfolgreich angelegt.`);
       setNewChildName('');
-      setNewChildNfc('');
-      setNewChildFp('');
+      setNewChildLimit('');
       loadData(); // Neu laden
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  // Tageslimit eines Kindes ändern
+  const handleUpdateLimit = async (e, childId) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/users/${childId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          daily_limit: editingChildLimit === '' ? null : parseFloat(editingChildLimit),
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Fehler beim Speichern des Tageslimits');
+
+      setSuccess(`Tageslimit für ${data.name} erfolgreich aktualisiert.`);
+      setEditingChildId(null);
+      setEditingChildLimit('');
+      loadData();
     } catch (err) {
       setError(err.message);
     }
@@ -115,22 +144,65 @@ export default function UserDashboard({ token }) {
         {/* Kinder-Verwaltung Card */}
         <div className="card" style={styles.card}>
           <h2 style={styles.cardTitle}>Kinder-Accounts</h2>
+          <p style={{ ...styles.infoText, marginBottom: '1rem', marginTop: '-0.75rem' }}>
+            Kinder greifen auf das Guthaben des Elternkontos zu. NFC-Chips und Fingerabdrücke können nur an der Kasse registriert werden.
+          </p>
+
           {children.length === 0 ? (
             <p style={{ marginBottom: '1.5rem' }}>Keine Kinder-Accounts angelegt.</p>
           ) : (
             <div style={styles.childrenList}>
               {children.map((child) => (
                 <div key={child.id} style={styles.childItem}>
-                  <div>
-                    <span style={styles.childName}>{child.name}</span>
-                    <div style={styles.childDetails}>
-                      {child.nfc_id && <span>NFC: Ja </span>}
-                      {child.fingerprint_id && <span>Fingerprint: Ja </span>}
+                  <div style={{ flex: 1, textAlign: 'left' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={styles.childName}>{child.name}</span>
+                      <button
+                        onClick={() => {
+                          setEditingChildId(child.id);
+                          setEditingChildLimit(child.daily_limit !== null ? child.daily_limit.toString() : '');
+                        }}
+                        style={styles.inlineEditBtn}
+                      >
+                        ✏️ Limit ändern
+                      </button>
                     </div>
+
+                    <div style={styles.childDetails}>
+                      {child.nfc_id && <span style={styles.idBadge}>NFC</span>}
+                      {child.fingerprint_id && <span style={styles.idBadge}>Fingerprint</span>}
+                      {!child.nfc_id && !child.fingerprint_id && <span style={{ color: 'var(--text-muted)' }}>Keine Hardware verknüpft</span>}
+                    </div>
+
+                    {editingChildId === child.id ? (
+                      <form onSubmit={(e) => handleUpdateLimit(e, child.id)} style={styles.inlineLimitForm}>
+                        <input
+                          type="number"
+                          step="0.10"
+                          min="0"
+                          className="input-field"
+                          style={styles.inlineLimitInput}
+                          placeholder="z.B. 5,00"
+                          value={editingChildLimit}
+                          onChange={(e) => setEditingChildLimit(e.target.value)}
+                        />
+                        <button type="submit" className="btn btn-accent" style={styles.inlineLimitSubmit}>
+                          Speichern
+                        </button>
+                        <button type="button" onClick={() => setEditingChildId(null)} className="btn btn-secondary" style={styles.inlineLimitCancel}>
+                          X
+                        </button>
+                      </form>
+                    ) : (
+                      <div style={styles.limitStatusBox}>
+                        <span>Tageslimit: <strong>{child.daily_limit !== null ? `${child.daily_limit.toFixed(2).replace('.', ',')} €` : 'Unbegrenzt'}</strong></span>
+                        <br />
+                        <span>Heute verbraucht: <strong style={{ color: child.spent_today >= (child.daily_limit || Infinity) ? 'var(--danger)' : 'var(--success)' }}>
+                          {child.spent_today.toFixed(2).replace('.', ',')} €
+                        </strong></span>
+                      </div>
+                    )}
                   </div>
-                  <span style={styles.childBalance}>
-                    {child.balance.toFixed(2).replace('.', ',')} €
-                  </span>
                 </div>
               ))}
             </div>
@@ -152,23 +224,15 @@ export default function UserDashboard({ token }) {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">NFC Chip-ID (Optional)</label>
+              <label className="form-label">Tageslimit in € (Optional)</label>
               <input
-                type="text"
+                type="number"
+                step="0.50"
+                min="0"
                 className="input-field"
-                placeholder="ID einscannen oder eingeben"
-                value={newChildNfc}
-                onChange={(e) => setNewChildNfc(e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Fingerprint-ID (Optional)</label>
-              <input
-                type="text"
-                className="input-field"
-                placeholder="Scanner-ID eintragen"
-                value={newChildFp}
-                onChange={(e) => setNewChildFp(e.target.value)}
+                placeholder="z.B. 5,00 (leer für unbegrenzt)"
+                value={newChildLimit}
+                onChange={(e) => setNewChildLimit(e.target.value)}
               />
             </div>
             <button type="submit" className="btn btn-accent" style={{ width: '100%' }}>
@@ -325,10 +389,54 @@ const styles = {
     fontSize: '0.75rem',
     color: 'var(--text-muted)',
     marginTop: '0.15rem',
+    display: 'flex',
+    gap: '0.4rem',
+    alignItems: 'center',
+    marginBottom: '0.4rem',
   },
-  childBalance: {
-    fontWeight: '700',
+  idBadge: {
+    background: 'rgba(255, 255, 255, 0.08)',
+    padding: '0.1rem 0.35rem',
+    borderRadius: '4px',
+    fontSize: '0.65rem',
+    color: '#ccc',
+    fontWeight: '600',
+  },
+  inlineEditBtn: {
+    background: 'none',
+    border: 'none',
     color: 'var(--accent)',
+    fontSize: '0.75rem',
+    cursor: 'pointer',
+    fontWeight: '600',
+    padding: '0.2rem 0',
+  },
+  inlineLimitForm: {
+    display: 'flex',
+    gap: '0.4rem',
+    marginTop: '0.5rem',
+    alignItems: 'center',
+  },
+  inlineLimitInput: {
+    padding: '0.35rem 0.6rem',
+    fontSize: '0.85rem',
+    width: '100px',
+  },
+  inlineLimitSubmit: {
+    padding: '0.35rem 0.75rem',
+    fontSize: '0.85rem',
+  },
+  inlineLimitCancel: {
+    padding: '0.35rem 0.5rem',
+    fontSize: '0.85rem',
+    background: 'none',
+    border: 'none',
+  },
+  limitStatusBox: {
+    fontSize: '0.85rem',
+    color: '#eee',
+    lineHeight: '1.4',
+    marginTop: '0.25rem',
   },
   divider: {
     height: '1px',
