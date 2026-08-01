@@ -107,6 +107,41 @@ export default function UserDashboard({ token }) {
     }
   };
 
+  // Avatar hochladen
+  const handleAvatarChange = async (e, userId) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 200 * 1024) {
+      alert('Das Profilbild ist zu groß! Bitte wählen Sie ein Bild unter 200 KB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      setError('');
+      setSuccess('');
+      try {
+        const res = await fetch(`/api/users/${userId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ avatar_url: reader.result })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Fehler beim Speichern des Profilbilds');
+
+        setSuccess(`Profilbild für ${data.name} erfolgreich aktualisiert.`);
+        loadData();
+      } catch (err) {
+        setError(err.message);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   if (loading) {
     return <div style={{ textAlign: 'center', padding: '3rem' }}>Lade Dashboard...</div>;
   }
@@ -130,6 +165,31 @@ export default function UserDashboard({ token }) {
           <h2 style={styles.cardTitle}>Mein Guthaben</h2>
           {mainUser && (
             <div style={styles.balanceContainer}>
+              {/* Avatar Vorschau & Upload */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '1rem' }}>
+                <div 
+                  style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255, 255, 255, 0.1)', border: '2px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative', cursor: 'pointer' }}
+                  onClick={() => document.getElementById('avatar-input-self').click()}
+                  title="Profilbild ändern"
+                >
+                  {mainUser.avatar_url ? (
+                    <img src={mainUser.avatar_url} alt="Mein Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontSize: '2.5rem' }}>👤</span>
+                  )}
+                  <div style={{ position: 'absolute', bottom: 0, width: '100%', background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: '0.65rem', padding: '2px 0', textAlign: 'center' }}>
+                    Ändern
+                  </div>
+                </div>
+                <input
+                  type="file"
+                  id="avatar-input-self"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => handleAvatarChange(e, mainUser.id)}
+                />
+              </div>
+
               <div style={styles.balanceValue}>
                 {mainUser.balance.toFixed(2).replace('.', ',')} €
               </div>
@@ -153,7 +213,30 @@ export default function UserDashboard({ token }) {
           ) : (
             <div style={styles.childrenList}>
               {children.map((child) => (
-                <div key={child.id} style={styles.childItem}>
+                <div key={child.id} style={{ ...styles.childItem, display: 'flex', gap: '0.75rem', alignItems: 'start' }}>
+                  {/* Child Avatar Upload */}
+                  <div 
+                    style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative', cursor: 'pointer', flexShrink: 0 }}
+                    onClick={() => document.getElementById(`avatar-input-${child.id}`).click()}
+                    title="Kinderbild ändern"
+                  >
+                    {child.avatar_url ? (
+                      <img src={child.avatar_url} alt="Child Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <span style={{ fontSize: '1.25rem' }}>👶</span>
+                    )}
+                    <div style={{ position: 'absolute', bottom: 0, width: '100%', background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: '0.5rem', padding: '1px 0', textAlign: 'center' }}>
+                      +
+                    </div>
+                  </div>
+                  <input
+                    type="file"
+                    id={`avatar-input-${child.id}`}
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleAvatarChange(e, child.id)}
+                  />
+
                   <div style={{ flex: 1, textAlign: 'left' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={styles.childName}>{child.name}</span>

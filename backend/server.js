@@ -79,7 +79,8 @@ app.post('/api/auth/login', async (req, res) => {
         name: user.name,
         username: user.username,
         role: user.role,
-        balance: parseFloat(user.balance)
+        balance: parseFloat(user.balance),
+        avatar_url: user.avatar_url
       }
     });
   } catch (err) {
@@ -327,7 +328,7 @@ app.post('/api/auth/register', async (req, res) => {
 // Profil abrufen
 app.get('/api/auth/me', authenticate, async (req, res) => {
   try {
-    const result = await query('SELECT id, name, username, role, balance, parent_id FROM users WHERE id = $1', [req.user.id]);
+    const result = await query('SELECT id, name, username, role, balance, parent_id, avatar_url FROM users WHERE id = $1', [req.user.id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Benutzer nicht gefunden' });
     }
@@ -353,7 +354,7 @@ app.get('/api/users', authenticate, async (req, res) => {
         SELECT u.id, u.name, u.username, u.role, 
                COALESCE(p.balance, u.balance) as balance, 
                u.nfc_id, u.fingerprint_id, u.parent_id,
-               p.name as parent_name, u.daily_limit, u.created_at,
+               p.name as parent_name, u.daily_limit, u.created_at, u.avatar_url,
                (
                  SELECT COALESCE(SUM(ABS(t.amount)), 0)
                  FROM transactions t
@@ -376,7 +377,7 @@ app.get('/api/users', authenticate, async (req, res) => {
         SELECT u.id, u.name, u.username, u.role, 
                COALESCE(p.balance, u.balance) as balance, 
                u.nfc_id, u.fingerprint_id, u.parent_id,
-               u.daily_limit,
+               u.daily_limit, u.avatar_url,
                (
                  SELECT COALESCE(SUM(ABS(t.amount)), 0)
                  FROM transactions t
@@ -411,7 +412,7 @@ app.get('/api/users/find', authenticate, async (req, res) => {
       SELECT u.id, u.name, u.username, u.role, 
              COALESCE(p.balance, u.balance) as balance, 
              u.nfc_id, u.fingerprint_id, u.parent_id,
-             p.name as parent_name, u.daily_limit,
+             p.name as parent_name, u.daily_limit, u.avatar_url,
              (
                SELECT COALESCE(SUM(ABS(t.amount)), 0)
                FROM transactions t
@@ -516,7 +517,7 @@ app.post('/api/users', authenticate, async (req, res) => {
 // Benutzer aktualisieren (Admin-Rechte, oder begrenzte Änderungen durch User an seinen Kindern)
 app.put('/api/users/:id', authenticate, async (req, res) => {
   const { id } = req.params;
-  const { name, username, password, role, nfc_id, fingerprint_id, daily_limit } = req.body;
+  const { name, username, password, role, nfc_id, fingerprint_id, daily_limit, avatar_url } = req.body;
 
   try {
     // Prüfen ob berechtigt
@@ -527,17 +528,29 @@ app.put('/api/users/:id', authenticate, async (req, res) => {
 
     const targetUser = checkUser.rows[0];
     const limit = daily_limit !== undefined ? (daily_limit === '' || daily_limit === null ? null : parseFloat(daily_limit)) : targetUser.daily_limit;
+    const avatar = avatar_url !== undefined ? avatar_url : targetUser.avatar_url;
 
     if (req.user.role !== 'admin') {
-      // Wenn nicht admin, darf es nur ein eigenes Kind sein
-      if (targetUser.parent_id !== req.user.id) {
+      const isSelf = parseInt(id, 10) === req.user.id;
+      const isMyChild = targetUser.parent_id === req.user.id;
+
+      if (!isSelf && !isMyChild) {
         return res.status(403).json({ error: 'Nicht autorisiert' });
       }
-      // User darf bei Kindern nur Name und Tageslimit ändern (keine Rollen, Passwörter, oder NFC/Fingerprint)
-      await query(
-        `UPDATE users SET name = $1, daily_limit = $2 WHERE id = $3`,
-        [name || targetUser.name, limit, id]
-      );
+
+      if (isSelf) {
+        // Eigener Account: darf name und avatar_url ändern
+        await query(
+          `UPDATE users SET name = $1, avatar_url = $2 WHERE id = $3`,
+          [name || targetUser.name, avatar, id]
+        );
+      } else {
+        // Eigenes Kind: darf name, daily_limit und avatar_url ändern
+        await query(
+          `UPDATE users SET name = $1, daily_limit = $2, avatar_url = $3 WHERE id = $4`,
+          [name || targetUser.name, limit, avatar, id]
+        );
+      }
     } else {
       // Admin darf alles ändern
       let passwordHash = targetUser.password_hash;
@@ -546,16 +559,17 @@ app.put('/api/users/:id', authenticate, async (req, res) => {
       }
 
       await query(
-        `UPDATE users SET name = $1, username = $2, password_hash = $3, role = $4, nfc_id = $5, fingerprint_id = $6, daily_limit = $7
-         WHERE id = $8`,
+        `UPDATE users SET name = $1, username = $2, password_hash = $3, role = $4, nfc_id = $5, fingerprint_id = $6, daily_limit = $7, avatar_url = $8
+         WHERE id = $9`,
         [
           name || targetUser.name,
           username ? username.toLowerCase().trim() : targetUser.username,
           passwordHash,
           role || targetUser.role,
-          nfc_id || null,
-          fingerprint_id || null,
+          nfc_id !== undefined ? nfc_id : targetUser.nfc_id,
+          fingerprint_id !== undefined ? fingerprint_id : targetUser.fingerprint_id,
           limit,
+          avatar,
           id
         ]
       );
@@ -746,10 +760,14 @@ app.post('/api/users/:id/link-hardware', authenticate, async (req, res) => {
 // PRODUKTE VERWALTUNG
 // ----------------------------------------------------
 
-// Alle aktiven Produkte
+// Alle aktiven Produkte (oder alle für Admins über ?all=true)
 app.get('/api/products', async (req, res) => {
+  const showAll = req.query.all === 'true';
   try {
-    const result = await query('SELECT * FROM products WHERE active = true ORDER BY category DESC, name ASC');
+    const queryStr = showAll
+      ? 'SELECT * FROM products ORDER BY category DESC, name ASC'
+      : 'SELECT * FROM products WHERE active = true ORDER BY category DESC, name ASC';
+    const result = await query(queryStr);
     const products = result.rows.map(p => ({ ...p, price: parseFloat(p.price) }));
     res.json(products);
   } catch (err) {
@@ -764,16 +782,16 @@ app.post('/api/products', authenticate, async (req, res) => {
     return res.status(403).json({ error: 'Nicht autorisiert' });
   }
 
-  const { name, size_info, price, category } = req.body;
+  const { name, size_info, price, category, image_url } = req.body;
   if (!name || isNaN(parseFloat(price)) || !category) {
     return res.status(400).json({ error: 'Ungültige Produktdaten' });
   }
 
   try {
     const result = await query(
-      `INSERT INTO products (name, size_info, price, category)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [name.trim(), size_info ? size_info.trim() : null, parseFloat(price), category.trim()]
+      `INSERT INTO products (name, size_info, price, category, image_url)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [name.trim(), size_info ? size_info.trim() : null, parseFloat(price), category.trim(), image_url || null]
     );
     const product = result.rows[0];
     product.price = parseFloat(product.price);
@@ -791,7 +809,7 @@ app.put('/api/products/:id', authenticate, async (req, res) => {
   }
 
   const { id } = req.params;
-  const { name, size_info, price, category, active } = req.body;
+  const { name, size_info, price, category, active, image_url } = req.body;
 
   try {
     const checkProduct = await query('SELECT * FROM products WHERE id = $1', [id]);
@@ -802,14 +820,15 @@ app.put('/api/products/:id', authenticate, async (req, res) => {
     const prod = checkProduct.rows[0];
 
     await query(
-      `UPDATE products SET name = $1, size_info = $2, price = $3, category = $4, active = $5
-       WHERE id = $6`,
+      `UPDATE products SET name = $1, size_info = $2, price = $3, category = $4, active = $5, image_url = $6
+       WHERE id = $7`,
       [
         name || prod.name,
         size_info !== undefined ? size_info : prod.size_info,
         price !== undefined ? parseFloat(price) : prod.price,
         category || prod.category,
         active !== undefined ? active : prod.active,
+        image_url !== undefined ? image_url : prod.image_url,
         id
       ]
     );

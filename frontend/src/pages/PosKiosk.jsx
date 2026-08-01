@@ -28,6 +28,7 @@ export default function PosKiosk({ token }) {
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [checkoutUser, setCheckoutUser] = useState(null);
 
   // Münz- und Scheinzähler
   const [cashCounts, setCashCounts] = useState({});
@@ -147,6 +148,7 @@ export default function PosKiosk({ token }) {
       setSuccess(`Kauf erfolgreich gebucht für ${user.name}! Neues Guthaben: ${data.newBalance.toFixed(2).replace('.', ',')} €`);
       clearCart();
       setSelectedUser(null);
+      setCheckoutUser(null);
       setSearchQuery('');
       setShowCheckoutModal(false);
       loadInitialData(); // Kontostände aktualisieren
@@ -164,7 +166,7 @@ export default function PosKiosk({ token }) {
     const user = users.find((u) => u.nfc_id === nfcId);
     if (user) {
       if (showCheckoutModal) {
-        await performCheckout(user);
+        setCheckoutUser(user);
       } else {
         setSelectedUser(user);
         setSuccess(`NFC-Tag gescannt: ${user.name} identifiziert!`);
@@ -180,7 +182,7 @@ export default function PosKiosk({ token }) {
     const user = users.find((u) => u.fingerprint_id === fpId);
     if (user) {
       if (showCheckoutModal) {
-        await performCheckout(user);
+        setCheckoutUser(user);
       } else {
         setSelectedUser(user);
         setSuccess(`Fingerabdruck gescannt: ${user.name} identifiziert!`);
@@ -200,12 +202,9 @@ export default function PosKiosk({ token }) {
       return;
     }
 
-    if (!selectedUser) {
-      // Wenn kein Spieler vorab ausgewählt wurde, öffne das Zahlungs-Modal
-      setShowCheckoutModal(true);
-    } else {
-      // Wenn bereits gewählt, direkt buchen
-      await performCheckout(selectedUser);
+    setShowCheckoutModal(true);
+    if (selectedUser) {
+      setCheckoutUser(selectedUser);
     }
   };
 
@@ -372,9 +371,15 @@ export default function PosKiosk({ token }) {
                   onClick={() => addToCart(prod)}
                   style={styles.productTile}
                 >
-                  <div style={styles.tileCategoryBadge}>
-                    {prod.category === 'Getränk' ? '🍹' : '🌭'}
-                  </div>
+                  {prod.image_url ? (
+                    <div style={{ width: '100%', height: '60px', borderRadius: '6px', overflow: 'hidden', marginBottom: '0.4rem', background: 'rgba(0,0,0,0.2)' }}>
+                      <img src={prod.image_url} alt={prod.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                  ) : (
+                    <div style={styles.tileCategoryBadge}>
+                      {prod.category === 'Getränk' ? '🍹' : '🌭'}
+                    </div>
+                  )}
                   <div style={styles.tileName}>{prod.name}</div>
                   <div style={styles.tileSize}>{prod.size_info || 'Portion'}</div>
                   <div style={styles.tilePrice}>{prod.price.toFixed(2).replace('.', ',')} €</div>
@@ -486,8 +491,12 @@ export default function PosKiosk({ token }) {
             {selectedUser ? (
               <div style={styles.identifiedUserBoxContainer}>
                 <div style={styles.identifiedUserBox}>
-                  <div style={styles.userAvatar}>
-                    {selectedUser.name.charAt(0)}
+                  <div style={{ ...styles.userAvatar, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: 0 }}>
+                    {selectedUser.avatar_url ? (
+                      <img src={selectedUser.avatar_url} alt={selectedUser.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      selectedUser.name.charAt(0)
+                    )}
                   </div>
                   <div style={styles.userIdentDetails}>
                     <div style={styles.selectedName}>{selectedUser.name}</div>
@@ -601,9 +610,16 @@ export default function PosKiosk({ token }) {
                             setSelectedUser(u);
                             setSearchResults([]);
                           }}
-                          style={styles.dropdownItem}
+                          style={{ ...styles.dropdownItem, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                         >
-                          <div>
+                          <div style={{ width: '25px', height: '25px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {u.avatar_url ? (
+                              <img src={u.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <span style={{ fontSize: '0.75rem' }}>👤</span>
+                            )}
+                          </div>
+                          <div style={{ flex: 1, textAlign: 'left' }}>
                             <strong>{u.name}</strong>
                             {u.parent_name && <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}> (Kind von {u.parent_name})</span>}
                           </div>
@@ -789,81 +805,151 @@ export default function PosKiosk({ token }) {
                 </div>
               )}
 
-              <p style={styles.modalInstruction}>
-                Bitte NFC-Chip an das Lesegerät halten oder den Finger auf den Scanner legen.
-              </p>
+              {checkoutUser ? (
+                /* BESTÄTIGUNGS-ANSICHT (AVATAR & INFO) */
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', marginTop: '1rem', textAlign: 'center' }}>
+                  {/* Large Avatar preview */}
+                  <div style={{ width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: '3px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', boxShadow: 'var(--shadow-lg)' }}>
+                    {checkoutUser.avatar_url ? (
+                      <img src={checkoutUser.avatar_url} alt={checkoutUser.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <span style={{ fontSize: '3.5rem' }}>👤</span>
+                    )}
+                  </div>
 
-              {/* Hardware-Simulations-Tasten im Modal */}
-              <div style={styles.modalScannerSimBox}>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: '600' }}>
-                  SIMULIERE HARDWARE-SCAN:
-                </div>
-                <div style={styles.modalSimBtnGrid}>
-                  <button
-                    onClick={() => simulateNfcScan('NFC_MORITZ_123')}
-                    className="btn btn-secondary"
-                    style={styles.modalSimBtn}
-                  >
-                    💳 Scan NFC (Moritz - Limit 10€)
-                  </button>
-                  <button
-                    onClick={() => simulateNfcScan('NFC_MIA_456')}
-                    className="btn btn-secondary"
-                    style={styles.modalSimBtn}
-                  >
-                    💳 Scan NFC (Mia - Limit 5€)
-                  </button>
-                  <button
-                    onClick={() => simulateFingerprintScan('FP_MAX_123')}
-                    className="btn btn-secondary"
-                    style={styles.modalSimBtn}
-                  >
-                    ☝ Scan Finger (Max - Elternkonto)
-                  </button>
-                  <button
-                    onClick={() => simulateNfcScan('NFC_UNKNOWN_999')}
-                    className="btn btn-secondary"
-                    style={{ ...styles.modalSimBtn, color: 'var(--danger)' }}
-                  >
-                    ⚠️ Unbekannter NFC-Chip
-                  </button>
-                </div>
-              </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.25rem', color: '#fff', marginBottom: '0.25rem' }}>{checkoutUser.name}</h3>
+                    {checkoutUser.parent_id ? (
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        👪 Kind-Account (Gemeinsames Guthaben)
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        👤 Haupt-Account
+                      </div>
+                    )}
+                  </div>
 
-              <div style={{ margin: '1.5rem 0', height: '1px', background: 'rgba(255,255,255,0.08)' }}></div>
-
-              <div style={{ textAlign: 'left' }}>
-                <label className="form-label" style={{ fontSize: '0.9rem' }}>Oder Spieler manuell suchen und buchen:</label>
-                <div className="form-group" style={{ position: 'relative', marginTop: '0.35rem' }}>
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="Name eingeben..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                  {searchResults.length > 0 && (
-                    <div style={styles.searchResultsDropdown}>
-                      {searchResults.map((u) => (
-                        <button
-                          key={u.id}
-                          onClick={async () => {
-                            setSearchResults([]);
-                            await performCheckout(u);
-                          }}
-                          style={styles.dropdownItem}
-                        >
-                          <div>
-                            <strong>{u.name}</strong>
-                            {u.parent_name && <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}> (Kind)</span>}
-                          </div>
-                          <span>{u.balance.toFixed(2).replace('.', ',')} €</span>
-                        </button>
-                      ))}
+                  <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px', padding: '0.75rem 1.25rem', width: '100%', display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.9rem', textAlign: 'left' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Verfügbares Guthaben:</span>
+                      <strong style={{ color: 'var(--accent)' }}>{checkoutUser.balance.toFixed(2).replace('.', ',')} €</strong>
                     </div>
-                  )}
+                    {checkoutUser.daily_limit !== null && (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Tageslimit:</span>
+                          <strong>{checkoutUser.daily_limit.toFixed(2).replace('.', ',')} €</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Heute verbraucht:</span>
+                          <strong style={{ color: checkoutUser.spent_today >= checkoutUser.daily_limit ? 'var(--danger)' : 'var(--success)' }}>
+                            {checkoutUser.spent_today.toFixed(2).replace('.', ',')} €
+                          </strong>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Buttons for confirmation */}
+                  <div style={{ display: 'flex', gap: '0.75rem', width: '100%', marginTop: '1rem' }}>
+                    <button
+                      onClick={() => setCheckoutUser(null)}
+                      className="btn btn-secondary"
+                      style={{ flex: 1, padding: '0.75rem' }}
+                    >
+                      Zurück / Abbrechen
+                    </button>
+                    <button
+                      onClick={() => performCheckout(checkoutUser)}
+                      className="btn btn-accent"
+                      style={{ flex: 2, padding: '0.75rem', fontSize: '0.95rem', fontWeight: '700' }}
+                    >
+                      ✓ Kauf buchen
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* IDENTIFIZIERUNGS-ANSICHT (NFC/FP SCAN ODER NAMENSSUCHE) */
+                <>
+                  <p style={styles.modalInstruction}>
+                    Bitte NFC-Chip an das Lesegerät halten oder den Finger auf den Scanner legen.
+                  </p>
+
+                  {/* Hardware-Simulations-Tasten im Modal */}
+                  <div style={styles.modalScannerSimBox}>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: '600' }}>
+                      SIMULIERE HARDWARE-SCAN:
+                    </div>
+                    <div style={styles.modalSimBtnGrid}>
+                      <button
+                        onClick={() => simulateNfcScan('NFC_MORITZ_123')}
+                        className="btn btn-secondary"
+                        style={styles.modalSimBtn}
+                      >
+                        💳 Scan NFC (Moritz - Limit 10€)
+                      </button>
+                      <button
+                        onClick={() => simulateNfcScan('NFC_MIA_456')}
+                        className="btn btn-secondary"
+                        style={styles.modalSimBtn}
+                      >
+                        💳 Scan NFC (Mia - Limit 2€)
+                      </button>
+                      <button
+                        onClick={() => simulateFingerprintScan('FP_MAX_999')}
+                        className="btn btn-secondary"
+                        style={styles.modalSimBtn}
+                      >
+                        👆 Scan Fingerabdruck (Max)
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ margin: '1.5rem 0', height: '1px', background: 'rgba(255,255,255,0.08)' }}></div>
+
+                  <div style={{ textAlign: 'left' }}>
+                    <label className="form-label" style={{ fontSize: '0.9rem' }}>Oder Spieler manuell suchen:</label>
+                    <div className="form-group" style={{ position: 'relative', marginTop: '0.35rem' }}>
+                      <input
+                        type="text"
+                        className="input-field"
+                        placeholder="Name eingeben..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                      {searchResults.length > 0 && (
+                        <div style={styles.searchResultsDropdown}>
+                          {searchResults.map((u) => (
+                            <button
+                              key={u.id}
+                              onClick={() => {
+                                setSearchResults([]);
+                                setCheckoutUser(u);
+                              }}
+                              style={{ ...styles.dropdownItem, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                            >
+                              <div style={{ width: '25px', height: '25px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {u.avatar_url ? (
+                                  <img src={u.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                  <span style={{ fontSize: '0.75rem' }}>👤</span>
+                                )}
+                              </div>
+                              <div style={{ flex: 1, textAlign: 'left' }}>
+                                <strong>{u.name}</strong>
+                                {u.parent_name && <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}> (Kind)</span>}
+                              </div>
+                              <span>{u.balance.toFixed(2).replace('.', ',')} €</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
             </div>
           </div>
         </div>

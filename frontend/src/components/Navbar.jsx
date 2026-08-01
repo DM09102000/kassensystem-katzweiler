@@ -60,7 +60,7 @@ export default function Navbar({ user, onLogout }) {
               </Link>
             )}
 
-            user.role === 'user' && (
+            {user.role === 'user' && (
               <Link
                 to="/dashboard"
                 style={{
@@ -70,7 +70,7 @@ export default function Navbar({ user, onLogout }) {
               >
                 Mein Konto
               </Link>
-            )
+            )}
 
             <div style={styles.userInfo}>
               <span style={styles.userName}>{user.name}</span>

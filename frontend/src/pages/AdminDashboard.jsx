@@ -32,6 +32,13 @@ export default function AdminDashboard({ token }) {
   const [generatedLink, setGeneratedLink] = useState('');
   const [generalToken, setGeneralToken] = useState('');
 
+  // Produkte verwalten States
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' or 'products'
+  const [products, setProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [isEditingProduct, setIsEditingProduct] = useState(false);
+  const [editProduct, setEditProduct] = useState(null);
+
   // Suche, Filter, Sortierung States
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('name-asc');
@@ -139,6 +146,73 @@ export default function AdminDashboard({ token }) {
   useEffect(() => {
     loadSettlement();
   }, [selectedDate, token]);
+
+  useEffect(() => {
+    if (activeTab === 'products') {
+      loadProducts();
+    }
+  }, [activeTab, token]);
+
+  const loadProducts = async () => {
+    setLoadingProducts(true);
+    try {
+      const res = await fetch('/api/products?all=true', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setProducts(data);
+    } catch (err) {
+      setError(err.message || 'Fehler beim Laden der Produkte');
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  const handleProductImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 200 * 1024) {
+        alert('Das Bild ist zu groß! Bitte laden Sie ein Bild unter 200 KB hoch.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditProduct({ ...editProduct, image_url: reader.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveProduct = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    try {
+      const url = editProduct.id ? `/api/products/${editProduct.id}` : '/api/products';
+      const method = editProduct.id ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(editProduct)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Fehler beim Speichern des Produkts');
+
+      setSuccess(`Produkt "${data.name}" erfolgreich gespeichert.`);
+      setIsEditingProduct(false);
+      setEditProduct(null);
+      loadProducts();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
   // CSV Export starten
   const handleExport = () => {
@@ -387,9 +461,28 @@ export default function AdminDashboard({ token }) {
       {error && <div style={styles.errorAlert}>{error}</div>}
       {success && <div style={styles.successAlert}>{success}</div>}
 
-      <div style={styles.tabGrid}>
-        {/* LINKS: ABRECHNUNGS-TABELLE & EXPORT */}
-        <div className="card" style={{ ...styles.card, flex: 2 }}>
+      {/* Tab Buttons */}
+      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.75rem' }}>
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className={`btn ${activeTab === 'dashboard' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ padding: '0.5rem 1.25rem', fontSize: '0.9rem' }}
+        >
+          📊 Dashboard (Abrechnung & Benutzer)
+        </button>
+        <button
+          onClick={() => setActiveTab('products')}
+          className={`btn ${activeTab === 'products' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ padding: '0.5rem 1.25rem', fontSize: '0.9rem' }}
+        >
+          📦 Waren verwalten (Produkte)
+        </button>
+      </div>
+
+      {activeTab === 'dashboard' ? (
+        <div style={styles.tabGrid}>
+          {/* LINKS: ABRECHNUNGS-TABELLE & EXPORT */}
+          <div className="card" style={{ ...styles.card, flex: 2 }}>
           <div style={styles.cardHeaderFlex}>
             <h2 style={styles.cardTitle}>Tagesabrechnung</h2>
             <div style={styles.dateSelectorArea}>
@@ -975,7 +1068,189 @@ export default function AdminDashboard({ token }) {
             </div>
           )}
         </div>
-      </div>
+      ) : (
+        <div className="card" style={{ ...styles.card, padding: '2rem' }}>
+          <div style={styles.cardHeaderFlex}>
+            <h2 style={styles.cardTitle}>Warenverwaltung (Produkte)</h2>
+            <button
+              onClick={() => {
+                setEditProduct({
+                  id: null,
+                  name: '',
+                  size_info: '',
+                  price: '',
+                  category: 'Getränk',
+                  active: true,
+                  image_url: ''
+                });
+                setIsEditingProduct(true);
+              }}
+              className="btn btn-accent"
+              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+            >
+              ➕ Neues Produkt
+            </button>
+          </div>
+
+          {loadingProducts ? (
+            <p>Lade Produkte...</p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem', marginTop: '1rem' }}>
+              {products.map((product) => (
+                <div key={product.id} className="card" style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', position: 'relative', opacity: product.active ? 1 : 0.6 }}>
+                  {/* Product Image */}
+                  <div style={{ width: '100%', height: '150px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center' }}>
+                    {product.image_url ? (
+                      <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <span style={{ fontSize: '3rem', opacity: 0.3 }}>
+                        {product.category === 'Getränk' ? '🍹' : '🍔'}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Product Details */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                      <span style={{ fontWeight: '700', fontSize: '1.1rem', color: '#fff' }}>{product.name}</span>
+                      <span style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text-muted)', fontSize: '0.75rem', padding: '0.15rem 0.4rem', borderRadius: '4px' }}>
+                        {product.category}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{product.size_info || 'Keine Angabe'}</span>
+                    <span style={{ fontWeight: '800', color: 'var(--accent)', fontSize: '1.15rem', marginTop: '0.25rem' }}>
+                      {product.price.toFixed(2).replace('.', ',')} €
+                    </span>
+                  </div>
+
+                  {/* Badges and Actions */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                    <span style={{ color: product.active ? '#4ade80' : '#f87171', fontSize: '0.8rem', fontWeight: '700' }}>
+                      {product.active ? '● Aktiv' : '● Inaktiv'}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setEditProduct({ ...product });
+                        setIsEditingProduct(true);
+                      }}
+                      className="btn btn-secondary"
+                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}
+                    >
+                      ⚙️ Bearbeiten
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Produkt anlegen/bearbeiten Overlay */}
+      {isEditingProduct && editProduct && (
+        <div style={styles.chargeOverlay}>
+          <div className="card" style={{ ...styles.chargeCard, maxWidth: '450px' }}>
+            <h3>{editProduct.id ? 'Produkt bearbeiten' : 'Produkt erstellen'}</h3>
+            <form onSubmit={handleSaveProduct} style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="form-group">
+                <label className="form-label">Name</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={editProduct.name}
+                  onChange={(e) => setEditProduct({ ...editProduct, name: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Kategorie</label>
+                  <select
+                    className="input-field"
+                    value={editProduct.category}
+                    onChange={(e) => setEditProduct({ ...editProduct, category: e.target.value })}
+                  >
+                    <option value="Getränk">Getränk</option>
+                    <option value="Speise">Speise</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Größe/Einheit (z.B. 0,5L)</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={editProduct.size_info || ''}
+                    onChange={(e) => setEditProduct({ ...editProduct, size_info: e.target.value })}
+                    placeholder="z.B. 0,5L, Portion"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Preis in €</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="input-field"
+                    value={editProduct.price}
+                    onChange={(e) => setEditProduct({ ...editProduct, price: parseFloat(e.target.value) || '' })}
+                    required
+                    placeholder="z.B. 2,50"
+                  />
+                </div>
+
+                <div className="form-group" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginTop: '1.25rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={editProduct.active}
+                      onChange={(e) => setEditProduct({ ...editProduct, active: e.target.checked })}
+                      style={{ width: '1.2rem', height: '1.2rem' }}
+                    />
+                    <span>Aktiv zum Verkauf</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Produktbild (Optional)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProductImageChange}
+                  className="input-field"
+                  style={{ fontSize: '0.8rem', padding: '0.4rem' }}
+                />
+                {editProduct.image_url && (
+                  <div style={{ marginTop: '0.75rem', width: '100%', height: '120px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img src={editProduct.image_url} alt="Vorschau" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                )}
+              </div>
+
+              <div style={styles.overlayButtons}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditingProduct(false);
+                    setEditProduct(null);
+                  }}
+                  className="btn btn-secondary"
+                >
+                  Abbrechen
+                </button>
+                <button type="submit" className="btn btn-accent">
+                  Speichern
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
