@@ -4,6 +4,7 @@ export default function AdminDashboard({ token }) {
   const [users, setUsers] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [settlementData, setSettlementData] = useState({ drinks: [], food: [], total: 0 });
+  const [transactions, setTransactions] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingSettlement, setLoadingSettlement] = useState(false);
 
@@ -104,6 +105,7 @@ export default function AdminDashboard({ token }) {
         totalFood,
         total: totalDrinks + totalFood,
       });
+      setTransactions(transactions);
     } catch (err) {
       console.error(err);
       setError('Abrechnungsvorschau konnte nicht geladen werden.');
@@ -126,6 +128,30 @@ export default function AdminDashboard({ token }) {
       `/api/export/settlement?date=${selectedDate}&authorization=Bearer ${token}`,
       '_blank'
     );
+  };
+
+  // Buchung stornieren (Kauf oder Aufladung)
+  const handleDeleteTransaction = async (txId) => {
+    if (!window.confirm('Möchten Sie diese Buchung wirklich unwiderruflich stornieren? Das Guthaben des Benutzers wird zurückberechnet.')) {
+      return;
+    }
+
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`/api/transactions/${txId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Fehler beim Stornieren');
+
+      setSuccess('Buchung erfolgreich storniert!');
+      loadUsers();
+      loadSettlement();
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   // Guthaben aufladen
@@ -234,9 +260,11 @@ export default function AdminDashboard({ token }) {
     setIsEditing(true);
   };
 
-  // Gruppiere Kinder unter Eltern
-  const parents = users.filter((u) => !u.parent_id);
-  const children = users.filter((u) => u.parent_id);
+  // Gruppiere Spieler (Eltern + Kinder) und filtere Kassenpersonal/Admins
+  const playerParents = users.filter((u) => !u.parent_id && u.role === 'user');
+  const playerChildren = users.filter((u) => u.parent_id && u.role === 'user');
+  const staffUsers = users.filter((u) => u.role === 'admin' || u.role === 'pos');
+  const parents = playerParents;
 
   return (
     <div className="animated">
@@ -338,6 +366,75 @@ export default function AdminDashboard({ token }) {
                   </tbody>
                 </table>
               </div>
+
+              {/* TRANSAKTIONS-HISTORIE UND STORNIERUNG */}
+              <div style={{ ...styles.tableTitle, marginTop: '2.5rem' }}>Buchungs-Historie (Stornierbar)</div>
+              {transactions.filter(tx => new Date(tx.created_at).toISOString().split('T')[0] === selectedDate).length === 0 ? (
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', padding: '1rem 0' }}>Keine Buchungen an diesem Tag.</p>
+              ) : (
+                <div className="table-container" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Zeit</th>
+                        <th>Nutzer</th>
+                        <th>Typ</th>
+                        <th>Details</th>
+                        <th style={{ textAlign: 'right' }}>Betrag</th>
+                        <th style={{ textAlign: 'center' }}>Aktion</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transactions
+                        .filter(tx => new Date(tx.created_at).toISOString().split('T')[0] === selectedDate)
+                        .map((tx) => {
+                          const isKauf = tx.type === 'kauf';
+                          const timeStr = new Date(tx.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                          
+                          let details = 'Direktaufladung';
+                          if (isKauf && tx.items) {
+                            details = tx.items.map(item => `${item.productName} (x${item.quantity})`).join(', ');
+                          }
+
+                          return (
+                            <tr key={tx.id}>
+                              <td>{timeStr} Uhr</td>
+                              <td>{tx.user_name}</td>
+                              <td>
+                                <span className={isKauf ? 'badge badge-user' : 'badge badge-pos'} style={{ fontSize: '0.7rem' }}>
+                                  {isKauf ? 'Kauf' : 'Aufladung'}
+                                </span>
+                              </td>
+                              <td style={{ fontSize: '0.8rem', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={details}>
+                                {details}
+                              </td>
+                              <td
+                                style={{
+                                  textAlign: 'right',
+                                  fontWeight: '700',
+                                  color: isKauf ? 'var(--danger)' : 'var(--success)',
+                                }}
+                              >
+                                {isKauf ? '' : '+'}
+                                {tx.amount.toFixed(2).replace('.', ',')} €
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <button
+                                  onClick={() => handleDeleteTransaction(tx.id)}
+                                  style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem', background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', border: '1px solid rgba(239,68,68,0.2)' }}
+                                  className="btn btn-secondary"
+                                  title="Buchung stornieren"
+                                >
+                                  🗑️ Storno
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -431,7 +528,7 @@ export default function AdminDashboard({ token }) {
                     </select>
                   </div>
 
-                  {editUser.role !== 'pos' && (
+                  {editUser.role === 'user' && (
                     <div className="form-group">
                       <label className="form-label">Eltern-Account (Für Kinder-Accounts)</label>
                       <select
@@ -530,8 +627,12 @@ export default function AdminDashboard({ token }) {
             <p>Lade Benutzerliste...</p>
           ) : (
             <div style={styles.userListScroll}>
-              {parents.map((parent) => {
-                const myChildren = children.filter((c) => c.parent_id === parent.id);
+              {/* Sektion 1: Spieler & Familien */}
+              <div style={{ ...styles.tableTitle, fontSize: '1rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.4rem', marginBottom: '0.8rem' }}>
+                Spieler & Familien
+              </div>
+              {playerParents.map((parent) => {
+                const myChildren = playerChildren.filter((c) => c.parent_id === parent.id);
 
                 return (
                   <div key={parent.id} style={styles.userGroup}>
@@ -541,8 +642,6 @@ export default function AdminDashboard({ token }) {
                         <span style={styles.mainUserName}>{parent.name}</span>
                         <div style={styles.subInfoLabel}>
                           {parent.username && <span>@{parent.username} </span>}
-                          {parent.role === 'admin' && <span className="badge badge-admin">Admin</span>}
-                          {parent.role === 'pos' && <span className="badge badge-pos">Kasse</span>}
                           {parent.nfc_id && <span style={styles.idBadge}>NFC</span>}
                           {parent.fingerprint_id && <span style={styles.idBadge}>FP</span>}
                         </div>
@@ -617,6 +716,37 @@ export default function AdminDashboard({ token }) {
                   </div>
                 );
               })}
+
+              {/* Sektion 2: Personal & Kassen-Accounts */}
+              <div style={{ ...styles.tableTitle, fontSize: '1rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.4rem', marginTop: '2rem', marginBottom: '0.8rem' }}>
+                Personal & Kassen-Accounts
+              </div>
+              {staffUsers.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Kein Personal angelegt.</p>
+              ) : (
+                staffUsers.map((staff) => (
+                  <div key={staff.id} style={{ ...styles.parentRow, padding: '0.6rem 0.8rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '8px', marginBottom: '0.5rem' }}>
+                    <div style={styles.userInfoCol}>
+                      <span style={styles.mainUserName}>{staff.name}</span>
+                      <div style={styles.subInfoLabel}>
+                        {staff.username && <span>@{staff.username} </span>}
+                        {staff.role === 'admin' && <span className="badge badge-admin">Admin</span>}
+                        {staff.role === 'pos' && <span className="badge badge-pos">Kasse</span>}
+                      </div>
+                    </div>
+                    <div style={styles.actionCol}>
+                      <button
+                        onClick={() => startEdit(staff)}
+                        className="btn btn-secondary"
+                        style={styles.actionIconBtn}
+                        title="Bearbeiten"
+                      >
+                        ⚙️
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>

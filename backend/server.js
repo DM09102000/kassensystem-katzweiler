@@ -171,11 +171,11 @@ app.get('/api/users/find', authenticate, async (req, res) => {
     `;
 
     if (nfc) {
-      result = await query(`${baseQuery} WHERE u.nfc_id = $1`, [nfc.trim()]);
+      result = await query(`${baseQuery} WHERE u.role = 'user' AND u.nfc_id = $1`, [nfc.trim()]);
     } else if (fingerprint) {
-      result = await query(`${baseQuery} WHERE u.fingerprint_id = $1`, [fingerprint.trim()]);
+      result = await query(`${baseQuery} WHERE u.role = 'user' AND u.fingerprint_id = $1`, [fingerprint.trim()]);
     } else if (q) {
-      result = await query(`${baseQuery} WHERE u.name ILIKE $1 OR u.username ILIKE $1 ORDER BY u.name LIMIT 10`, [`%${q.trim()}%`]);
+      result = await query(`${baseQuery} WHERE u.role = 'user' AND (u.name ILIKE $1 OR u.username ILIKE $1) ORDER BY u.name LIMIT 10`, [`%${q.trim()}%`]);
       const users = result.rows.map(u => ({ 
         ...u, 
         balance: parseFloat(u.balance),
@@ -350,6 +350,11 @@ app.post('/api/users/:id/charge', authenticate, async (req, res) => {
     }
 
     const user = checkUser.rows[0];
+    if (user.role !== 'user') {
+      await query('ROLLBACK');
+      return res.status(400).json({ error: 'Kontoaufladung für Administratoren oder Kassen-Accounts nicht zulässig.' });
+    }
+
     const targetUserId = user.parent_id ? user.parent_id : user.id;
 
     // Guthaben beim Hauptaccount aufladen
@@ -553,6 +558,11 @@ app.post('/api/transactions/checkout', authenticate, async (req, res) => {
     }
 
     const user = checkUser.rows[0];
+    if (user.role !== 'user') {
+      await query('ROLLBACK');
+      return res.status(400).json({ error: 'Käufe können nur für Spieler-Konten gebucht werden.' });
+    }
+
     let totalPrice = 0;
     const itemsToInsert = [];
 
@@ -741,6 +751,54 @@ app.get('/api/transactions', authenticate, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Serverfehler beim Laden der Transaktionen' });
+  }
+});
+
+// Stornieren/Löschen einer Transaktion
+app.delete('/api/transactions/:id', authenticate, async (req, res) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'pos') {
+    return res.status(403).json({ error: 'Keine Berechtigung' });
+  }
+
+  const { id } = req.params;
+
+  try {
+    // Start transaction
+    await query('BEGIN');
+
+    const txResult = await query('SELECT * FROM transactions WHERE id = $1', [id]);
+    if (txResult.rows.length === 0) {
+      await query('ROLLBACK');
+      return res.status(404).json({ error: 'Buchung nicht gefunden' });
+    }
+
+    const tx = txResult.rows[0];
+    const amountVal = parseFloat(tx.amount);
+
+    // Finde den eigentlichen Haupt-Account (Eltern-Account falls Kind)
+    const userResult = await query('SELECT id, parent_id, role FROM users WHERE id = $1', [tx.user_id]);
+    if (userResult.rows.length > 0) {
+      const targetUser = userResult.rows[0];
+      const refundUserId = targetUser.parent_id || targetUser.id;
+
+      if (tx.type === 'kauf') {
+        // Kauf stornieren: Betrag wieder gutschreiben (tx.amount ist negativ, also abziehen)
+        await query('UPDATE users SET balance = balance - $1 WHERE id = $2', [amountVal, refundUserId]);
+      } else if (tx.type === 'aufladung') {
+        // Aufladung stornieren: Betrag abziehen (tx.amount ist positiv)
+        await query('UPDATE users SET balance = balance - $1 WHERE id = $2', [amountVal, refundUserId]);
+      }
+    }
+
+    // Transaktion löschen (Kaskadiert automatisch zu transaction_items)
+    await query('DELETE FROM transactions WHERE id = $1', [id]);
+    await query('COMMIT');
+
+    res.json({ success: true, message: 'Buchung erfolgreich storniert' });
+  } catch (err) {
+    await query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Serverfehler beim Stornieren der Buchung' });
   }
 });
 
