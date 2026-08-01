@@ -18,6 +18,8 @@ async function testConnection() {
     try {
       const client = await pool.connect();
       console.log('Successfully connected to PostgreSQL database!');
+      // Auto-migrate: Add email column if not exists
+      await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE;');
       client.release();
       break;
     } catch (err) {

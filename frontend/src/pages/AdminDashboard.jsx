@@ -18,6 +18,7 @@ export default function AdminDashboard({ token }) {
     id: null,
     name: '',
     username: '',
+    email: '',
     password: '',
     role: 'user',
     nfc_id: '',
@@ -28,6 +29,8 @@ export default function AdminDashboard({ token }) {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [generatedLink, setGeneratedLink] = useState('');
+  const [generalToken, setGeneralToken] = useState('');
 
   // Suche, Filter, Sortierung States
   const [searchTerm, setSearchTerm] = useState('');
@@ -121,6 +124,16 @@ export default function AdminDashboard({ token }) {
 
   useEffect(() => {
     loadUsers();
+    const loadConfig = async () => {
+      try {
+        const res = await fetch('/api/config');
+        const data = await res.json();
+        setGeneralToken(data.generalInviteToken);
+      } catch (err) {
+        console.error('Fehler beim Laden des Konfigurations-Tokens:', err);
+      }
+    };
+    loadConfig();
   }, [token]);
 
   useEffect(() => {
@@ -154,6 +167,28 @@ export default function AdminDashboard({ token }) {
       setSuccess('Buchung erfolgreich storniert!');
       loadUsers();
       loadSettlement();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  // Einladungslink generieren
+  const handleGenerateInvite = async (user) => {
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`/api/users/${user.id}/invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Fehler beim Generieren des Einladungslinks');
+
+      setGeneratedLink(data.inviteLink);
     } catch (err) {
       setError(err.message);
     }
@@ -208,6 +243,7 @@ export default function AdminDashboard({ token }) {
       const body = {
         name: editUser.name,
         username: editUser.username || null,
+        email: editUser.email || null,
         role: editUser.role,
         nfc_id: editUser.nfc_id || null,
         fingerprint_id: editUser.fingerprint_id || null,
@@ -237,6 +273,7 @@ export default function AdminDashboard({ token }) {
         id: null,
         name: '',
         username: '',
+        email: '',
         password: '',
         role: 'user',
         nfc_id: '',
@@ -255,6 +292,7 @@ export default function AdminDashboard({ token }) {
       id: user.id,
       name: user.name,
       username: user.username || '',
+      email: user.email || '',
       password: '',
       role: user.role,
       nfc_id: user.nfc_id || '',
@@ -581,6 +619,18 @@ export default function AdminDashboard({ token }) {
             </div>
           </div>
 
+          {/* GENERAL INVITE LINK INFO BOX */}
+          <div style={{ padding: '0.6rem 0.8rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.15)', borderRadius: '8px', marginBottom: '1.25rem', fontSize: '0.8rem', textAlign: 'left' }}>
+            <span style={{ fontWeight: '700', color: '#60a5fa', display: 'block', marginBottom: '0.2rem' }}>📢 Allgemeiner Registrierungs-Link (QR-Code):</span>
+            <code style={{ background: 'rgba(0,0,0,0.2)', padding: '0.2rem 0.4rem', borderRadius: '4px', display: 'inline-block', color: 'var(--accent)', wordBreak: 'break-all', cursor: 'pointer' }} onClick={(e) => {
+              navigator.clipboard.writeText(`${window.location.origin}/register?token=${generalToken || 'FK-KANTINE-2026-INVITE'}`);
+              alert('Allgemeiner Registrierungs-Link in Zwischenablage kopiert!');
+            }}>
+              {window.location.origin}/register?token={generalToken || 'FK-KANTINE-2026-INVITE'}
+            </code>
+            <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Anklicken zum Kopieren. Diesen Link als QR-Code ausdrucken.</span>
+          </div>
+
           {/* Auflade-Formular Overlay/Card */}
           {chargeUser && (
             <div style={styles.chargeOverlay}>
@@ -677,6 +727,16 @@ export default function AdminDashboard({ token }) {
                         />
                       </div>
                       <div className="form-group">
+                        <label className="form-label">E-Mail-Adresse (Für Einladungen)</label>
+                        <input
+                          type="email"
+                          className="input-field"
+                          value={editUser.email}
+                          onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
+                          placeholder="z.B. name@beispiel.de"
+                        />
+                      </div>
+                      <div className="form-group">
                         <label className="form-label">
                           Passwort {editUser.id ? '(Leer lassen für keine Änderung)' : ''}
                         </label>
@@ -736,6 +796,42 @@ export default function AdminDashboard({ token }) {
                   </div>
                 </form>
               </div>
+          {/* Einladungslink Overlay */}
+          {generatedLink && (
+            <div style={styles.chargeOverlay}>
+              <div className="card" style={{ ...styles.chargeCard, maxWidth: '400px' }}>
+                <h3>Einladungslink generiert</h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0.5rem 0 1rem 0' }}>
+                  Kopiere diesen Link und sende ihn dem Mitglied, um die Registrierung abzuschließen.
+                </p>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                  <input
+                    type="text"
+                    readOnly
+                    value={generatedLink}
+                    className="input-field"
+                    style={{ fontSize: '0.8rem', padding: '0.4rem 0.6rem' }}
+                    onClick={(e) => e.target.select()}
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedLink);
+                      alert('Link in Zwischenablage kopiert!');
+                    }}
+                    className="btn btn-accent"
+                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                  >
+                    📋 Kopieren
+                  </button>
+                </div>
+                <button
+                  onClick={() => setGeneratedLink('')}
+                  className="btn btn-secondary"
+                  style={{ width: '100%' }}
+                >
+                  Schließen
+                </button>
+              </div>
             </div>
           )}
 
@@ -785,6 +881,16 @@ export default function AdminDashboard({ token }) {
                         >
                           ⚙️
                         </button>
+                        {!parent.username && (
+                          <button
+                            onClick={() => handleGenerateInvite(parent)}
+                            className="btn btn-secondary"
+                            style={{ ...styles.actionIconBtn, background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.2)' }}
+                            title="Einladungslink erstellen"
+                          >
+                            ✉️
+                          </button>
+                        )}
                       </div>
                     </div>
 

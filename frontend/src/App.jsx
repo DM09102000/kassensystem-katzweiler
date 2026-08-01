@@ -5,6 +5,7 @@ import Login from './pages/Login.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import UserDashboard from './pages/UserDashboard.jsx';
 import PosKiosk from './pages/PosKiosk.jsx';
+import Register from './pages/Register.jsx';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -122,6 +123,11 @@ export default function App() {
               } 
             />
             
+            <Route 
+              path="/register" 
+              element={<Register onLoginSuccess={handleLogin} />} 
+            />
+
             <Route path="/" element={<RootRedirect />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

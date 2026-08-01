@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     username VARCHAR(50) UNIQUE, -- NULL für Kinder ohne eigenen Login
+    email VARCHAR(255) UNIQUE,   -- E-Mail-Adresse für Registrierung/Google Login
     password_hash VARCHAR(255),  -- NULL für Kinder
     nfc_id VARCHAR(50) UNIQUE,
     fingerprint_id VARCHAR(50) UNIQUE,

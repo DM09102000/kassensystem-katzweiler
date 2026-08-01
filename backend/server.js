@@ -7,6 +7,7 @@ import { query } from './db.js';
 const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'katzweiler_secret_key_123';
+const GENERAL_INVITE_TOKEN = process.env.GENERAL_INVITE_TOKEN || 'FK-KANTINE-2026-INVITE';
 
 app.use(cors());
 app.use(express.json());
@@ -32,20 +33,34 @@ const authenticate = (req, res, next) => {
 // AUTH ROUTEN
 // ----------------------------------------------------
 
-// Login
+// Konfiguration für Google Login bereitstellen
+app.get('/api/config', (req, res) => {
+  res.json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID || '464162756520-236dfr8upkf3974av4qhsd939c7egu4l.apps.googleusercontent.com',
+    generalInviteToken: GENERAL_INVITE_TOKEN
+  });
+});
+
+// Login (unterstützt Username oder E-Mail)
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
-    return res.status(400).json({ error: 'Benutzername und Passwort erforderlich' });
+    return res.status(400).json({ error: 'Benutzername/E-Mail und Passwort erforderlich' });
   }
 
+  const loginStr = username.toLowerCase().trim();
+
   try {
-    const result = await query('SELECT * FROM users WHERE username = $1', [username.toLowerCase().trim()]);
+    const result = await query('SELECT * FROM users WHERE username = $1 OR email = $1', [loginStr]);
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Falscher Benutzername oder Passwort' });
     }
 
     const user = result.rows[0];
+    if (!user.password_hash) {
+      return res.status(400).json({ error: 'Dieser Account wurde manuell angelegt. Bitte nutzen Sie den Einladungslink, um die Registrierung abzuschließen.' });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ error: 'Falscher Benutzername oder Passwort' });
@@ -70,6 +85,242 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Serverfehler beim Login' });
+  }
+});
+
+// Google Authentication
+app.post('/api/auth/google', async (req, res) => {
+  const { credential, inviteToken } = req.body;
+  if (!credential) {
+    return res.status(400).json({ error: 'Google-Anmeldedaten fehlen' });
+  }
+
+  try {
+    // Verifiziere Google ID-Token über die Google Tokeninfo API
+    const googleRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
+    if (!googleRes.ok) {
+      return res.status(400).json({ error: 'Google-Token konnte nicht verifiziert werden' });
+    }
+
+    const payload = await googleRes.json();
+    const { email, name, email_verified } = payload;
+
+    if (!email_verified) {
+      return res.status(400).json({ error: 'E-Mail-Adresse von Google ist nicht verifiziert' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // 1. Prüfe, ob der Benutzer bereits existiert
+    let userResult = await query('SELECT * FROM users WHERE email = $1', [normalizedEmail]);
+    let user = userResult.rows[0];
+
+    // 2. Wenn Benutzer nicht existiert, versuchen wir ihn anzulegen
+    if (!user) {
+      const isWorkspace = normalizedEmail.endsWith('@freilichtspiele-katzweiler.de');
+
+      if (isWorkspace) {
+        // Auto-Registrierung für Vereins-Domains
+        const insertRes = await query(
+          "INSERT INTO users (name, email, role) VALUES ($1, $2, 'user') RETURNING *",
+          [name, normalizedEmail]
+        );
+        user = insertRes.rows[0];
+      } else {
+        // Andere Domains benötigen ein gültiges Invite-Token
+        if (!inviteToken) {
+          return res.status(400).json({ error: 'Einladungslink erforderlich, um ein neues Konto zu registrieren.' });
+        }
+
+        const inviteNormalized = inviteToken.trim();
+
+        if (inviteNormalized === GENERAL_INVITE_TOKEN) {
+          // Allgemeiner Einladungslink
+          const insertRes = await query(
+            "INSERT INTO users (name, email, role) VALUES ($1, $2, 'user') RETURNING *",
+            [name, normalizedEmail]
+          );
+          user = insertRes.rows[0];
+        } else {
+          // Spezifischer JWT Einladungslink
+          try {
+            const decoded = jwt.verify(inviteNormalized, JWT_SECRET);
+            if (!decoded.inviteUserId) throw new Error();
+
+            // Lade den vorbereiteten Benutzer
+            const checkUser = await query('SELECT * FROM users WHERE id = $1', [decoded.inviteUserId]);
+            if (checkUser.rows.length === 0) {
+              return res.status(400).json({ error: 'Zugeordneter Benutzer existiert nicht' });
+            }
+
+            const targetUser = checkUser.rows[0];
+            if (targetUser.username || targetUser.password_hash) {
+              return res.status(400).json({ error: 'Registrierung für diesen Link bereits abgeschlossen' });
+            }
+
+            // Verknüpfe den Google-Account mit dem bestehenden Eintrag
+            const updateRes = await query(
+              'UPDATE users SET name = $1, email = $2 WHERE id = $3 RETURNING *',
+              [name, normalizedEmail, targetUser.id]
+            );
+            user = updateRes.rows[0];
+          } catch (err) {
+            return res.status(400).json({ error: 'Ungültiger oder abgelaufener Einladungslink' });
+          }
+        }
+      }
+    }
+
+    // 3. Login-Token generieren
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role, name: user.name },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        role: user.role,
+        balance: parseFloat(user.balance)
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Serverfehler bei der Google-Authentifizierung' });
+  }
+});
+
+// Einladungslink verifizieren
+app.get('/api/auth/verify-invite', async (req, res) => {
+  const { token } = req.query;
+  if (!token) {
+    return res.status(400).json({ error: 'Token fehlt' });
+  }
+
+  const tokenStr = token.trim();
+
+  if (tokenStr === GENERAL_INVITE_TOKEN) {
+    return res.json({ valid: true, type: 'general' });
+  }
+
+  try {
+    const decoded = jwt.verify(tokenStr, JWT_SECRET);
+    if (!decoded.inviteUserId) {
+      return res.status(400).json({ valid: false, error: 'Ungültiges Token' });
+    }
+
+    const result = await query('SELECT id, name, email, username, password_hash FROM users WHERE id = $1', [decoded.inviteUserId]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ valid: false, error: 'Benutzer nicht gefunden' });
+    }
+
+    const user = result.rows[0];
+    if (user.username || user.password_hash) {
+      return res.status(400).json({ valid: false, error: 'Registrierung bereits abgeschlossen' });
+    }
+
+    res.json({
+      valid: true,
+      type: 'specific',
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email
+      }
+    });
+  } catch (err) {
+    res.status(400).json({ valid: false, error: 'Ungültiger oder abgelaufener Einladungslink' });
+  }
+});
+
+// Registrierung abschließen
+app.post('/api/auth/register', async (req, res) => {
+  const { token, name, username, email, password } = req.body;
+  if (!token || !name || !username || !password) {
+    return res.status(400).json({ error: 'Alle Felder und das Invite-Token sind erforderlich' });
+  }
+
+  const tokenStr = token.trim();
+  const regUsername = username.toLowerCase().trim();
+  const regEmail = email ? email.toLowerCase().trim() : null;
+
+  try {
+    // Prüfe, ob Benutzername bereits vergeben ist
+    const checkUsername = await query('SELECT id FROM users WHERE username = $1', [regUsername]);
+    if (checkUsername.rows.length > 0) {
+      return res.status(400).json({ error: 'Benutzername bereits vergeben' });
+    }
+
+    // Prüfe, ob E-Mail bereits vergeben ist
+    if (regEmail) {
+      const checkEmail = await query('SELECT id FROM users WHERE email = $1', [regEmail]);
+      if (checkEmail.rows.length > 0) {
+        return res.status(400).json({ error: 'E-Mail-Adresse bereits registriert' });
+      }
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    let user;
+
+    if (tokenStr === GENERAL_INVITE_TOKEN) {
+      // Allgemeiner Registrierungsvorgang
+      if (!regEmail) {
+        return res.status(400).json({ error: 'E-Mail-Adresse ist für Hauptaccounts erforderlich' });
+      }
+
+      const result = await query(
+        "INSERT INTO users (name, username, email, password_hash, role) VALUES ($1, $2, $3, $4, 'user') RETURNING *",
+        [name.trim(), regUsername, regEmail, passwordHash]
+      );
+      user = result.rows[0];
+    } else {
+      // Spezifischer Registrierungsvorgang (für manuell angelegte User)
+      const decoded = jwt.verify(tokenStr, JWT_SECRET);
+      if (!decoded.inviteUserId) {
+        return res.status(400).json({ error: 'Ungültiges Token' });
+      }
+
+      const checkUser = await query('SELECT * FROM users WHERE id = $1', [decoded.inviteUserId]);
+      if (checkUser.rows.length === 0) {
+        return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+      }
+
+      const targetUser = checkUser.rows[0];
+      if (targetUser.username || targetUser.password_hash) {
+        return res.status(400).json({ error: 'Registrierung bereits abgeschlossen' });
+      }
+
+      const result = await query(
+        'UPDATE users SET name = $1, username = $2, email = $3, password_hash = $4 WHERE id = $5 RETURNING *',
+        [name.trim(), regUsername, regEmail || targetUser.email, passwordHash, targetUser.id]
+      );
+      user = result.rows[0];
+    }
+
+    // Automatisch einloggen
+    const loginToken = jwt.sign(
+      { id: user.id, username: user.username, role: user.role, name: user.name },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      token: loginToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        role: user.role,
+        balance: parseFloat(user.balance)
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Serverfehler bei der Registrierung' });
   }
 });
 
@@ -321,6 +572,47 @@ app.put('/api/users/:id', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Benutzername, NFC-ID oder Fingerabdruck-ID wird bereits verwendet' });
     }
     res.status(500).json({ error: 'Serverfehler beim Aktualisieren des Benutzers' });
+  }
+});
+
+// Einladungs-Link für Benutzer generieren (nur Admin)
+app.post('/api/users/:id/invite', authenticate, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Nicht autorisiert' });
+  }
+
+  const { id } = req.params;
+
+  try {
+    const result = await query('SELECT id, name, email, username, password_hash FROM users WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    }
+
+    const user = result.rows[0];
+    if (user.username || user.password_hash) {
+      return res.status(400).json({ error: 'Registrierung dieses Benutzers ist bereits abgeschlossen' });
+    }
+
+    // Generiere JWT token (gültig für 7 Tage)
+    const inviteToken = jwt.sign({ inviteUserId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    
+    // Simuliere E-Mail-Versand in der Backend-Konsole
+    console.log(`\n======================================================`);
+    console.log(`📧 SIMULIERTE EINLADUNGS-E-MAIL AN: \${user.name}`);
+    console.log(`Hallo \${user.name},\\n\\nSie wurden eingeladen, Ihr Konto bei der Spielerkantine Katzweiler zu aktivieren.`);
+    console.log(`Bitte klicken Sie auf den folgenden Link, um Ihre Registrierung abzuschließen:`);
+    console.log(`http://localhost:5173/register?token=\${inviteToken}`);
+    console.log(`======================================================\\n`);
+
+    res.json({
+      success: true,
+      inviteToken,
+      inviteLink: `http://localhost:5173/register?token=\${inviteToken}`
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Serverfehler beim Generieren des Einladungslinks' });
   }
 });
 

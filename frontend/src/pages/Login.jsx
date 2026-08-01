@@ -1,12 +1,71 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function Login({ onLoginSuccess }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleClientId, setGoogleClientId] = useState('');
   const navigate = useNavigate();
+
+  // Google Config laden
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch('/api/config');
+        const data = await res.json();
+        setGoogleClientId(data.googleClientId);
+      } catch (err) {
+        console.error('Fehler beim Laden der Google-Konfiguration:', err);
+      }
+    };
+    fetchConfig();
+  }, []);
+
+  // Google Login initialisieren
+  useEffect(() => {
+    if (googleClientId && window.google) {
+      /* global google */
+      google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleGoogleLogin,
+      });
+      google.accounts.id.renderButton(
+        document.getElementById('google-login-button'),
+        { theme: 'outline', size: 'large', width: '100%' }
+      );
+    }
+  }, [googleClientId]);
+
+  const handleGoogleLogin = async (response) => {
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: response.credential }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Google-Login fehlgeschlagen');
+
+      onLoginSuccess(data.user, data.token);
+
+      if (data.user.role === 'admin') {
+        navigate('/admin');
+      } else if (data.user.role === 'pos') {
+        navigate('/kasse');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -56,6 +115,17 @@ export default function Login({ onLoginSuccess }) {
 
         {error && <div style={styles.error}>{error}</div>}
 
+        {/* GOOGLE LOGIN */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div id="google-login-button"></div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', margin: '1.5rem 0' }}>
+          <div style={{ flex: 1, height: '1px', background: 'rgba(255, 255, 255, 0.08)' }}></div>
+          <span style={{ padding: '0 0.75rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>oder</span>
+          <div style={{ flex: 1, height: '1px', background: 'rgba(255, 255, 255, 0.08)' }}></div>
+        </div>
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label" htmlFor="username">
@@ -97,6 +167,10 @@ export default function Login({ onLoginSuccess }) {
             {loading ? 'Anmeldung...' : 'Einloggen'}
           </button>
         </form>
+
+        <p style={{ marginTop: '1.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          Noch kein Konto? <Link to="/register" style={{ color: 'var(--accent)', fontWeight: '600', textDecoration: 'underline' }}>Mit Einladungslink registrieren</Link>
+        </p>
 
         <div style={styles.demoCredentials}>
           <p style={styles.demoTitle}>Demo-Zugangsdaten:</p>
