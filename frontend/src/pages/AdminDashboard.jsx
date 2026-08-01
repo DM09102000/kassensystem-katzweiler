@@ -560,7 +560,7 @@ export default function AdminDashboard({ token }) {
                 style={{ fontSize: '0.85rem', padding: '0.35rem 0.6rem' }}
               >
                 <option value="all">Alle Spieler</option>
-                <option value="negative-balance">Kontostand < 0 €</option>
+                <option value="negative-balance">Kontostand &lt; 0 €</option>
                 <option value="no-hardware">Hardware fehlt</option>
               </select>
             </div>
