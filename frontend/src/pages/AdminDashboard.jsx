@@ -29,6 +29,11 @@ export default function AdminDashboard({ token }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Suche, Filter, Sortierung States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('name-asc');
+  const [filterType, setFilterType] = useState('all');
+
   // 1. Benutzer laden
   const loadUsers = async () => {
     try {
@@ -266,6 +271,74 @@ export default function AdminDashboard({ token }) {
   const staffUsers = users.filter((u) => u.role === 'admin' || u.role === 'pos');
   const parents = playerParents;
 
+  // Suchen, Filtern und Sortieren der Spielerliste
+  const getFilteredPlayers = () => {
+    let filtered = playerParents.filter((parent) => {
+      const myChildren = playerChildren.filter((c) => c.parent_id === parent.id);
+      const term = searchTerm.toLowerCase().trim();
+      if (!term) return true;
+
+      // Prüfe Elternteil
+      const parentMatches =
+        parent.name.toLowerCase().includes(term) ||
+        (parent.username && parent.username.toLowerCase().includes(term)) ||
+        (parent.nfc_id && parent.nfc_id.toLowerCase().includes(term)) ||
+        (parent.fingerprint_id && parent.fingerprint_id.toLowerCase().includes(term));
+
+      if (parentMatches) return true;
+
+      // Prüfe Kinder
+      const childMatches = myChildren.some(
+        (child) =>
+          child.name.toLowerCase().includes(term) ||
+          (child.nfc_id && child.nfc_id.toLowerCase().includes(term)) ||
+          (child.fingerprint_id && child.fingerprint_id.toLowerCase().includes(term))
+      );
+
+      return childMatches;
+    });
+
+    // Filter-Typ anwenden
+    if (filterType === 'no-hardware') {
+      filtered = filtered.filter((parent) => {
+        const myChildren = playerChildren.filter((c) => c.parent_id === parent.id);
+        const parentNoHardware = !parent.nfc_id && !parent.fingerprint_id;
+        const anyChildNoHardware = myChildren.some(c => !c.nfc_id && !c.fingerprint_id);
+        return parentNoHardware || anyChildNoHardware;
+      });
+    } else if (filterType === 'negative-balance') {
+      filtered = filtered.filter((parent) => parent.balance < 0);
+    }
+
+    // Sortierung anwenden
+    filtered.sort((a, b) => {
+      if (sortBy === 'name-asc') {
+        return a.name.localeCompare(b.name);
+      } else if (sortBy === 'name-desc') {
+        return b.name.localeCompare(a.name);
+      } else if (sortBy === 'balance-desc') {
+        return b.balance - a.balance;
+      } else if (sortBy === 'balance-asc') {
+        return a.balance - b.balance;
+      } else if (sortBy === 'date-desc') {
+        return new Date(b.created_at) - new Date(a.created_at);
+      }
+      return 0;
+    });
+
+    return filtered;
+  };
+
+  const getFilteredStaff = () => {
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return staffUsers;
+    return staffUsers.filter(
+      (s) =>
+        s.name.toLowerCase().includes(term) ||
+        (s.username && s.username.toLowerCase().includes(term))
+    );
+  };
+
   return (
     <div className="animated">
       <div style={styles.header}>
@@ -465,6 +538,49 @@ export default function AdminDashboard({ token }) {
             </button>
           </div>
 
+          {/* SEARCH, FILTER & SORT CONTROLS */}
+          <div style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', marginBottom: '1.25rem', padding: '0.75rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem', fontWeight: '600' }}>Suchen</label>
+              <input
+                type="text"
+                placeholder="Name, NFC, FP..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input-field"
+                style={{ fontSize: '0.85rem', padding: '0.35rem 0.6rem' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem', fontWeight: '600' }}>Filter</label>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="input-field"
+                style={{ fontSize: '0.85rem', padding: '0.35rem 0.6rem' }}
+              >
+                <option value="all">Alle Spieler</option>
+                <option value="negative-balance">Kontostand < 0 €</option>
+                <option value="no-hardware">Hardware fehlt</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem', fontWeight: '600' }}>Sortieren</label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="input-field"
+                style={{ fontSize: '0.85rem', padding: '0.35rem 0.6rem' }}
+              >
+                <option value="name-asc">Name (A-Z)</option>
+                <option value="name-desc">Name (Z-A)</option>
+                <option value="balance-desc">Guthaben (hoch-tief)</option>
+                <option value="balance-asc">Guthaben (tief-hoch)</option>
+                <option value="date-desc">Neu registriert</option>
+              </select>
+            </div>
+          </div>
+
           {/* Auflade-Formular Overlay/Card */}
           {chargeUser && (
             <div style={styles.chargeOverlay}>
@@ -631,7 +747,7 @@ export default function AdminDashboard({ token }) {
               <div style={{ ...styles.tableTitle, fontSize: '1rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.4rem', marginBottom: '0.8rem' }}>
                 Spieler & Familien
               </div>
-              {playerParents.map((parent) => {
+              {getFilteredPlayers().map((parent) => {
                 const myChildren = playerChildren.filter((c) => c.parent_id === parent.id);
 
                 return (
@@ -721,10 +837,10 @@ export default function AdminDashboard({ token }) {
               <div style={{ ...styles.tableTitle, fontSize: '1rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.4rem', marginTop: '2rem', marginBottom: '0.8rem' }}>
                 Personal & Kassen-Accounts
               </div>
-              {staffUsers.length === 0 ? (
+              {getFilteredStaff().length === 0 ? (
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Kein Personal angelegt.</p>
               ) : (
-                staffUsers.map((staff) => (
+                getFilteredStaff().map((staff) => (
                   <div key={staff.id} style={{ ...styles.parentRow, padding: '0.6rem 0.8rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '8px', marginBottom: '0.5rem' }}>
                     <div style={styles.userInfoCol}>
                       <span style={styles.mainUserName}>{staff.name}</span>
