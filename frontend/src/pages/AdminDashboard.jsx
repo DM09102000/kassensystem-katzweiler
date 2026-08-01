@@ -796,6 +796,9 @@ export default function AdminDashboard({ token }) {
                   </div>
                 </form>
               </div>
+            </div>
+          )}
+
           {/* Einladungslink Overlay */}
           {generatedLink && (
             <div style={styles.chargeOverlay}>
