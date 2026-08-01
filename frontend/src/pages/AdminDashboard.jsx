@@ -1068,6 +1068,7 @@ export default function AdminDashboard({ token }) {
             </div>
           )}
         </div>
+      </div>
       ) : (
         <div className="card" style={{ ...styles.card, padding: '2rem' }}>
           <div style={styles.cardHeaderFlex}>
