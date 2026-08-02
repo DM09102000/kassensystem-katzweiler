@@ -372,7 +372,7 @@ export default function PosKiosk({ token }) {
                   style={styles.productTile}
                 >
                   {prod.image_url ? (
-                    <div style={{ width: '100%', height: '60px', borderRadius: '6px', overflow: 'hidden', marginBottom: '0.4rem', background: 'rgba(0,0,0,0.2)' }}>
+                    <div style={{ width: '100%', aspectRatio: '4 / 3', maxHeight: '80px', borderRadius: '6px', overflow: 'hidden', marginBottom: '0.4rem', background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <img src={prod.image_url} alt={prod.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                   ) : (

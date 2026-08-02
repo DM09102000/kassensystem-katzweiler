@@ -120,7 +120,7 @@ export default function ImageCropper({
     const scaleY = img.naturalHeight / img.offsetHeight;
 
     // Output canvas matches the display aspect ratio
-    const OUT_W = 800;
+    const OUT_W = circular ? 400 : 600;
     const OUT_H = Math.round(OUT_W / aspectRatio);
 
     const canvas = document.createElement('canvas');
@@ -314,10 +314,12 @@ export default function ImageCropper({
         </div>
 
         {/* Aspect ratio hint */}
-        <p style={{ margin: 0, fontSize: '0.75rem', color: 'rgba(255,255,255,0.35)', textAlign: 'center' }}>
+        <p style={{ margin: 0, fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
           {circular
-            ? 'Kreiszuschnitt 1:1 — wie das Profilbild angezeigt wird'
-            : `Seitenverhältnis ${aspectRatio % 1 === 0 ? aspectRatio + ':1' : aspectRatio.toFixed(2) + ':1'} — wie das Bild angezeigt wird`}
+            ? 'Kreiszuschnitt 1:1 — perfekt für Profilbilder'
+            : Math.abs(aspectRatio - 4 / 3) < 0.05
+            ? 'Seitenverhältnis 4:3 — exakt wie in der Kassenansicht angezeigt'
+            : `Seitenverhältnis ${aspectRatio % 1 === 0 ? aspectRatio + ':1' : aspectRatio.toFixed(2) + ':1'}`}
         </p>
 
         {/* Buttons */}

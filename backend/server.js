@@ -10,7 +10,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'katzweiler_secret_key_123';
 const GENERAL_INVITE_TOKEN = process.env.GENERAL_INVITE_TOKEN || 'FK-KANTINE-2026-INVITE';
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Auth Middleware
 const authenticate = (req, res, next) => {

@@ -460,7 +460,7 @@ export default function AdminDashboard({ token }) {
           imageSrc={productCropperSrc}
           onConfirm={handleProductCropConfirm}
           onCancel={() => setProductCropperSrc(null)}
-          aspectRatio={3}
+          aspectRatio={4 / 3}
           circular={false}
         />
       )}
@@ -1112,7 +1112,7 @@ export default function AdminDashboard({ token }) {
               {products.map((product) => (
                 <div key={product.id} className="card" style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', position: 'relative', opacity: product.active ? 1 : 0.6 }}>
                   {/* Product Image */}
-                  <div style={{ width: '100%', height: '150px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: '100%', aspectRatio: '4 / 3', maxHeight: '160px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {product.image_url ? (
                       <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
@@ -1239,7 +1239,7 @@ export default function AdminDashboard({ token }) {
                   style={{ fontSize: '0.8rem', padding: '0.4rem' }}
                 />
                 {editProduct.image_url && (
-                  <div style={{ marginTop: '0.75rem', width: '100%', height: '120px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ marginTop: '0.75rem', width: '100%', aspectRatio: '4 / 3', maxHeight: '140px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <img src={editProduct.image_url} alt="Vorschau" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                 )}
