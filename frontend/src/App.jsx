@@ -12,6 +12,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [loading, setLoading] = useState(true);
+  const [kioskMode, setKioskMode] = useState('sale'); // 'sale' | 'charge'
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -91,7 +92,7 @@ export default function App() {
   return (
     <Router>
       <div className="app-container">
-        <Navbar user={user} onLogout={handleLogout} />
+        <Navbar user={user} onLogout={handleLogout} kioskMode={kioskMode} onKioskModeChange={setKioskMode} />
         
         <main>
           <Routes>
@@ -110,7 +111,7 @@ export default function App() {
               path="/kasse" 
               element={
                 <PosRoute>
-                  <PosKiosk token={token} />
+                  <PosKiosk token={token} kioskMode={kioskMode} setKioskMode={setKioskMode} />
                 </PosRoute>
               } 
             />

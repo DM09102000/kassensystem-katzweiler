@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 
-export default function Navbar({ user, onLogout }) {
+export default function Navbar({ user, onLogout, kioskMode = 'sale', onKioskModeChange }) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -11,6 +11,7 @@ export default function Navbar({ user, onLogout }) {
   };
 
   const isActive = (path) => location.pathname === path;
+  const isKassePage = location.pathname === '/kasse';
 
   return (
     <nav style={styles.nav}>
@@ -22,6 +23,44 @@ export default function Navbar({ user, onLogout }) {
             <span style={styles.logoSubtitle}>Spielerkantine</span>
           </div>
         </Link>
+
+        {/* Wenn auf der Kassen-Seite: Modus-Toggle Knöpfe direkt in der Titlebar */}
+        {isKassePage && onKioskModeChange && (
+          <div style={{ display: 'flex', gap: '0.5rem', margin: '0 auto' }}>
+            <button
+              onClick={() => onKioskModeChange('sale')}
+              style={{
+                padding: '0.4rem 0.9rem',
+                fontSize: '0.85rem',
+                borderRadius: '8px',
+                fontWeight: '700',
+                border: 'none',
+                cursor: 'pointer',
+                background: kioskMode === 'sale' ? 'var(--accent, #d4af37)' : 'rgba(255,255,255,0.08)',
+                color: kioskMode === 'sale' ? '#000' : '#fff',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              🛒 Verkauf buchen
+            </button>
+            <button
+              onClick={() => onKioskModeChange('charge')}
+              style={{
+                padding: '0.4rem 0.9rem',
+                fontSize: '0.85rem',
+                borderRadius: '8px',
+                fontWeight: '700',
+                border: 'none',
+                cursor: 'pointer',
+                background: kioskMode === 'charge' ? 'var(--accent, #d4af37)' : 'rgba(255,255,255,0.08)',
+                color: kioskMode === 'charge' ? '#000' : '#fff',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              💶 Guthaben aufladen
+            </button>
+          </div>
+        )}
 
         {user ? (
           <div style={styles.navLinks}>
@@ -36,19 +75,21 @@ export default function Navbar({ user, onLogout }) {
                 >
                   Admin-Bereich
                 </Link>
-                <Link
-                  to="/kasse"
-                  style={{
-                    ...styles.navLink,
-                    ...(isActive('/kasse') ? styles.navLinkActive : {}),
-                  }}
-                >
-                  Kassen-Terminal
-                </Link>
+                {!isKassePage && (
+                  <Link
+                    to="/kasse"
+                    style={{
+                      ...styles.navLink,
+                      ...(isActive('/kasse') ? styles.navLinkActive : {}),
+                    }}
+                  >
+                    Kassen-Terminal
+                  </Link>
+                )}
               </>
             )}
 
-            {user.role === 'pos' && (
+            {user.role === 'pos' && !isKassePage && (
               <Link
                 to="/kasse"
                 style={{

@@ -343,39 +343,6 @@ export default function PosKiosk({ token }) {
 
   return (
     <div className="animated" style={styles.kioskContainer}>
-      {/* OBERE NAVI FÜR MODUS (SLIM SINGLE-ROW HEADER) */}
-      <div style={styles.kioskHeader}>
-        <div style={styles.titleArea}>
-          <h1 style={{ fontSize: '1.25rem', margin: 0, fontWeight: '800', color: '#fff' }}>Kassen-Terminal</h1>
-        </div>
-        <div style={styles.modeToggleArea}>
-          <button
-            onClick={() => {
-              setKioskMode('sale');
-              setError('');
-              setSuccess('');
-              setSelectedUser(null);
-            }}
-            className={`btn ${kioskMode === 'sale' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.4rem 0.9rem', fontSize: '0.85rem' }}
-          >
-            🛒 Verkauf buchen
-          </button>
-          <button
-            onClick={() => {
-              setKioskMode('charge');
-              setError('');
-              setSuccess('');
-              setSelectedUser(null);
-            }}
-            className={`btn ${kioskMode === 'charge' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.4rem 0.9rem', fontSize: '0.85rem' }}
-          >
-            💶 Guthaben aufladen
-          </button>
-        </div>
-      </div>
-
       {error && <div style={{ ...styles.errorAlert, padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}>{error}</div>}
       {success && <div style={{ ...styles.successAlert, padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}>{success}</div>}
 
@@ -407,7 +374,7 @@ export default function PosKiosk({ token }) {
                   style={styles.productTile}
                 >
                   {prod.image_url ? (
-                    <div style={{ width: '100%', aspectRatio: '4 / 3', maxHeight: '55px', borderRadius: '5px', overflow: 'hidden', marginBottom: '0.25rem', background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '100%', aspectRatio: '4 / 3', maxHeight: '75px', borderRadius: '6px', overflow: 'hidden', marginBottom: '0.35rem', background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <img src={prod.image_url} alt={prod.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                   ) : (
@@ -516,185 +483,8 @@ export default function PosKiosk({ token }) {
           </div>
         )}
 
-        {/* RECHTE SPALTE: KUNDENAUSWAHL & WARENKORB */}
+        {/* RECHTE SPALTE: REINER WARENKORB ODER AUFLADEMODUS */}
         <div style={styles.sidebarPanel}>
-          
-          {/* SEKTION 1: USER AUSWAHL / SCANNER */}
-          <div className="card" style={styles.sidebarCard}>
-            <h2 style={styles.cardHeaderTitle}>👤 Spieler identifizieren</h2>
-            
-            {selectedUser ? (
-              <div style={styles.identifiedUserBoxContainer}>
-                <div style={styles.identifiedUserBox}>
-                  <div style={{ ...styles.userAvatar, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: 0 }}>
-                    {selectedUser.avatar_url ? (
-                      <img src={selectedUser.avatar_url} alt={selectedUser.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      selectedUser.name.charAt(0)
-                    )}
-                  </div>
-                  <div style={styles.userIdentDetails}>
-                    <div style={styles.selectedName}>{selectedUser.name}</div>
-                    
-                    {selectedUser.parent_id ? (
-                      <>
-                        <div style={styles.parentLinkText}>
-                          👪 Kind-Account (Gemeinsames Guthaben)
-                        </div>
-                        <div style={styles.selectedBalanceLabel}>
-                          Eltern-Guthaben ({selectedUser.parent_name}): <strong style={{ color: 'var(--accent)' }}>
-                            {selectedUser.balance.toFixed(2).replace('.', ',')} €
-                          </strong>
-                        </div>
-                        <div style={styles.limitInfoText}>
-                          Tageslimit: <strong>{selectedUser.daily_limit !== null ? `${selectedUser.daily_limit.toFixed(2).replace('.', ',')} €` : 'Unbegrenzt'}</strong>
-                          <br />
-                          Heute verbraucht: <strong style={{ color: selectedUser.spent_today >= (selectedUser.daily_limit || Infinity) ? 'var(--danger)' : 'var(--success)' }}>
-                            {selectedUser.spent_today.toFixed(2).replace('.', ',')} €
-                          </strong>
-                        </div>
-                      </>
-                    ) : (
-                      <div style={styles.selectedBalanceLabel}>
-                        Aktuelles Guthaben: <strong style={{ color: 'var(--accent)' }}>
-                          {selectedUser.balance.toFixed(2).replace('.', ',')} €
-                        </strong>
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => {
-                      setSelectedUser(null);
-                      setSearchQuery('');
-                    }}
-                    style={styles.removeUserBtn}
-                    title="Auswahl aufheben"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                {/* KASSEN HARDWARE-REGISTRIERUNG VOR ORT */}
-                <div style={styles.hardwareRegistrationBox}>
-                  <div style={styles.hardwareSectionTitle}>📟 Vor-Ort Hardware verknüpfen</div>
-                  
-                  <div style={styles.hardwareRow}>
-                    <span>NFC-Tag:</span>
-                    {selectedUser.nfc_id ? (
-                      <div style={styles.hardwareStatusActive}>
-                        <span style={styles.hardwareIdText}>Aktiv ({selectedUser.nfc_id})</span>
-                        <button
-                          onClick={() => handleLinkHardware(null, undefined)}
-                          style={styles.unlinkBtn}
-                        >
-                          Löschen
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => handleLinkHardware(`NFC_${selectedUser.name.split(' ')[0].toUpperCase()}_${Math.floor(Math.random() * 900 + 100)}`, undefined)}
-                        className="btn btn-secondary"
-                        style={styles.linkBtn}
-                      >
-                        Scan & Verknüpfen
-                      </button>
-                    )}
-                  </div>
-
-                  <div style={styles.hardwareRow}>
-                    <span>Fingerprint:</span>
-                    {selectedUser.fingerprint_id ? (
-                      <div style={styles.hardwareStatusActive}>
-                        <span style={styles.hardwareIdText}>Aktiv ({selectedUser.fingerprint_id.slice(0, 12)}...)</span>
-                        <button
-                          onClick={() => handleLinkHardware(undefined, null)}
-                          style={styles.unlinkBtn}
-                        >
-                          Löschen
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={handleTabletFingerprintRegister}
-                        className="btn btn-primary"
-                        style={{ ...styles.linkBtn, background: 'var(--accent)', color: '#000', fontWeight: '700' }}
-                      >
-                        ☝️ Am Tablet einlesen
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div>
-                {/* Suche per Name */}
-                <div className="form-group" style={{ marginBottom: '1rem' }}>
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="Spieler suchen (Name)..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                  {searchResults.length > 0 && (
-                    <div style={styles.searchResultsDropdown}>
-                      {searchResults.map((u) => (
-                        <button
-                          key={u.id}
-                          onClick={() => {
-                            setSelectedUser(u);
-                            setSearchResults([]);
-                          }}
-                          style={{ ...styles.dropdownItem, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                        >
-                          <div style={{ width: '25px', height: '25px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            {u.avatar_url ? (
-                              <img src={u.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <span style={{ fontSize: '0.75rem' }}>👤</span>
-                            )}
-                          </div>
-                          <div style={{ flex: 1, textAlign: 'left' }}>
-                            <strong>{u.name}</strong>
-                            {u.parent_name && <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}> (Kind von {u.parent_name})</span>}
-                          </div>
-                          <span>{u.balance.toFixed(2).replace('.', ',')} €</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Hardware Simulatoren */}
-                <div style={styles.scannerSimulatorBox}>
-                  <div style={styles.scannerLabel}>Simulation Hardware-Scanner:</div>
-                  <div style={styles.simBtnGrid}>
-                    <button
-                      onClick={() => simulateNfcScan('NFC_MORITZ_123')}
-                      className="btn btn-secondary"
-                      style={styles.simBtn}
-                    >
-                      📟 Scan NFC (Moritz - Kind)
-                    </button>
-                    <button
-                      onClick={() => simulateNfcScan('NFC_MIA_123')}
-                      className="btn btn-secondary"
-                      style={styles.simBtn}
-                    >
-                      📟 Scan NFC (Mia - Kind)
-                    </button>
-                    <button
-                      onClick={() => simulateFingerprintScan('FP_MORITZ_456')}
-                      className="btn btn-secondary"
-                      style={styles.simBtn}
-                    >
-                      ☝ Scan Finger (Moritz)
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* SEKTION 2: WARENKORB ODER AUFLADEBETRAG */}
           {kioskMode === 'sale' ? (
@@ -1067,50 +857,50 @@ const styles = {
   productGrid: {
     flex: 1,
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
-    gap: '0.4rem',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+    gap: '0.75rem',
     overflowY: 'auto',
-    paddingRight: '0.25rem',
+    paddingRight: '0.4rem',
     alignContent: 'start',
   },
   productTile: {
     background: 'rgba(255, 255, 255, 0.03)',
     border: '1px solid var(--border)',
-    borderRadius: '8px',
-    padding: '0.4rem',
+    borderRadius: '12px',
+    padding: '0.75rem 0.5rem',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     cursor: 'pointer',
     transition: 'var(--transition)',
     position: 'relative',
-    minHeight: '95px',
-    maxHeight: '125px',
+    minHeight: '135px',
     justifyContent: 'center',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
   },
   tileCategoryBadge: {
-    fontSize: '1.1rem',
-    marginBottom: '0.15rem',
+    fontSize: '1.5rem',
+    marginBottom: '0.25rem',
   },
   tileName: {
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#fff',
-    fontSize: '0.8rem',
+    fontSize: '0.95rem',
     textAlign: 'center',
-    lineHeight: '1.2',
-    maxHeight: '2.4em',
+    lineHeight: '1.25',
+    maxHeight: '2.5em',
     overflow: 'hidden',
   },
   tileSize: {
-    fontSize: '0.7rem',
+    fontSize: '0.75rem',
     color: 'var(--text-muted)',
-    marginTop: '0.1rem',
+    marginTop: '0.15rem',
   },
   tilePrice: {
-    fontSize: '0.85rem',
-    fontWeight: '700',
+    fontSize: '1.05rem',
+    fontWeight: '800',
     color: 'var(--accent)',
-    marginTop: '0.25rem',
+    marginTop: '0.35rem',
   },
   cashPanel: {
     flex: 2.2,
@@ -1275,22 +1065,27 @@ const styles = {
     paddingBottom: '0.2rem',
   },
   sidebarPanel: {
-    flex: 1.1,
-    minWidth: '300px',
+    flex: 1,
+    minWidth: '320px',
+    maxWidth: '380px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.5rem',
     overflow: 'hidden',
+    height: '100%',
   },
   sidebarCard: {
+    flex: 1,
     textAlign: 'left',
-    padding: '0.6rem 0.8rem',
+    padding: '1rem',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
   },
   cardHeaderTitle: {
-    fontSize: '0.95rem',
-    marginBottom: '0.4rem',
+    fontSize: '1.1rem',
+    marginBottom: '0.75rem',
     borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-    paddingBottom: '0.3rem',
+    paddingBottom: '0.5rem',
   },
   identifiedUserBox: {
     background: 'rgba(212, 175, 55, 0.08)',
@@ -1486,21 +1281,24 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '0.5rem 0',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
+    padding: '0.65rem 0',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
   },
   cartItemDetails: {
     flex: 1,
+    paddingRight: '0.5rem',
   },
   cartItemName: {
-    fontWeight: '600',
-    fontSize: '0.85rem',
+    fontWeight: '700',
+    fontSize: '0.95rem',
     color: '#fff',
+    lineHeight: '1.3',
   },
   cartItemPriceInfo: {
-    fontSize: '0.75rem',
+    fontSize: '0.8rem',
     color: 'var(--accent)',
-    marginTop: '0.1rem',
+    marginTop: '0.15rem',
+    fontWeight: '600',
   },
   cartQtyControls: {
     display: 'flex',
@@ -1508,42 +1306,49 @@ const styles = {
     gap: '0.5rem',
   },
   qtyBtn: {
-    width: '26px',
-    height: '26px',
-    borderRadius: '4px',
+    width: '32px',
+    height: '32px',
+    borderRadius: '6px',
     border: '1px solid var(--border)',
-    background: 'rgba(255, 255, 255, 0.05)',
+    background: 'rgba(255, 255, 255, 0.08)',
     color: '#fff',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     fontWeight: 'bold',
+    fontSize: '1.1rem',
   },
   qtyVal: {
-    fontSize: '0.9rem',
-    fontWeight: '700',
-    minWidth: '15px',
+    fontSize: '1.05rem',
+    fontWeight: '800',
+    minWidth: '20px',
     textAlign: 'center',
   },
   cartFooter: {
-    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-    paddingTop: '1rem',
+    borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+    paddingTop: '0.85rem',
+    marginTop: 'auto',
   },
   cartTotalRow: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    fontSize: '1rem',
+    fontSize: '1.05rem',
     fontWeight: '700',
-    marginBottom: '1rem',
+    marginBottom: '0.85rem',
   },
   cartTotalValue: {
-    color: '#fff',
-    fontSize: '1.25rem',
+    color: 'var(--accent, #d4af37)',
+    fontSize: '1.5rem',
+    fontWeight: '800',
   },
   checkoutBtn: {
     width: '100%',
+    padding: '0.85rem 1rem',
+    fontSize: '1.05rem',
+    fontWeight: '800',
+    borderRadius: '10px',
   },
   errorAlert: {
     background: 'rgba(239, 68, 68, 0.15)',
