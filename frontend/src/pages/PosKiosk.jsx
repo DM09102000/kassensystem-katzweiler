@@ -343,11 +343,10 @@ export default function PosKiosk({ token }) {
 
   return (
     <div className="animated" style={styles.kioskContainer}>
-      {/* OBERE NAVI FÜR MODUS */}
+      {/* OBERE NAVI FÜR MODUS (SLIM SINGLE-ROW HEADER) */}
       <div style={styles.kioskHeader}>
         <div style={styles.titleArea}>
-          <h1>Kassen-Terminal</h1>
-          <p>Kassensystem der Spielerkantine</p>
+          <h1 style={{ fontSize: '1.25rem', margin: 0, fontWeight: '800', color: '#fff' }}>Kassen-Terminal</h1>
         </div>
         <div style={styles.modeToggleArea}>
           <button
@@ -358,6 +357,7 @@ export default function PosKiosk({ token }) {
               setSelectedUser(null);
             }}
             className={`btn ${kioskMode === 'sale' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '0.4rem 0.9rem', fontSize: '0.85rem' }}
           >
             🛒 Verkauf buchen
           </button>
@@ -369,14 +369,15 @@ export default function PosKiosk({ token }) {
               setSelectedUser(null);
             }}
             className={`btn ${kioskMode === 'charge' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '0.4rem 0.9rem', fontSize: '0.85rem' }}
           >
             💶 Guthaben aufladen
           </button>
         </div>
       </div>
 
-      {error && <div style={styles.errorAlert}>{error}</div>}
-      {success && <div style={styles.successAlert}>{success}</div>}
+      {error && <div style={{ ...styles.errorAlert, padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}>{error}</div>}
+      {success && <div style={{ ...styles.successAlert, padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}>{success}</div>}
 
       <div style={styles.mainLayout}>
         
@@ -406,7 +407,7 @@ export default function PosKiosk({ token }) {
                   style={styles.productTile}
                 >
                   {prod.image_url ? (
-                    <div style={{ width: '100%', aspectRatio: '4 / 3', maxHeight: '80px', borderRadius: '6px', overflow: 'hidden', marginBottom: '0.4rem', background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '100%', aspectRatio: '4 / 3', maxHeight: '55px', borderRadius: '5px', overflow: 'hidden', marginBottom: '0.25rem', background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <img src={prod.image_url} alt={prod.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                   ) : (
@@ -1005,48 +1006,57 @@ const styles = {
   kioskContainer: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '1rem',
+    gap: '0.5rem',
+    height: 'calc(100vh - 70px)',
+    maxHeight: 'calc(100vh - 70px)',
+    overflow: 'hidden',
+    boxSizing: 'border-box',
   },
   kioskHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-    paddingBottom: '1rem',
-    flexWrap: 'wrap',
-    gap: '1rem',
+    paddingBottom: '0.4rem',
+    gap: '0.75rem',
+    flexShrink: 0,
   },
   titleArea: {
     textAlign: 'left',
   },
   modeToggleArea: {
     display: 'flex',
-    gap: '0.75rem',
+    gap: '0.5rem',
   },
   mainLayout: {
+    flex: 1,
     display: 'flex',
-    gap: '1.5rem',
+    gap: '1rem',
     alignItems: 'stretch',
-    flexWrap: 'wrap',
+    overflow: 'hidden',
   },
   productPanel: {
     flex: 2.2,
-    minWidth: '400px',
+    minWidth: '340px',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
   },
   categoryBar: {
     display: 'flex',
-    gap: '0.5rem',
-    marginBottom: '1rem',
+    gap: '0.4rem',
+    marginBottom: '0.4rem',
+    flexShrink: 0,
   },
   categoryBtn: {
     background: 'rgba(255, 255, 255, 0.04)',
     color: 'var(--text-muted)',
     border: '1px solid var(--border)',
-    padding: '0.6rem 1.2rem',
-    borderRadius: '8px',
+    padding: '0.35rem 0.8rem',
+    borderRadius: '6px',
     cursor: 'pointer',
     fontWeight: '600',
-    fontSize: '0.95rem',
+    fontSize: '0.85rem',
     transition: 'var(--transition)',
   },
   categoryBtnActive: {
@@ -1055,72 +1065,78 @@ const styles = {
     border: '1px solid var(--primary)',
   },
   productGrid: {
+    flex: 1,
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-    gap: '0.75rem',
-    maxHeight: '75vh',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+    gap: '0.4rem',
     overflowY: 'auto',
     paddingRight: '0.25rem',
+    alignContent: 'start',
   },
   productTile: {
     background: 'rgba(255, 255, 255, 0.03)',
     border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-md)',
-    padding: '1rem',
+    borderRadius: '8px',
+    padding: '0.4rem',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     cursor: 'pointer',
     transition: 'var(--transition)',
     position: 'relative',
-    minHeight: '130px',
+    minHeight: '95px',
+    maxHeight: '125px',
     justifyContent: 'center',
   },
   tileCategoryBadge: {
-    fontSize: '1.25rem',
-    marginBottom: '0.25rem',
+    fontSize: '1.1rem',
+    marginBottom: '0.15rem',
   },
   tileName: {
     fontWeight: '600',
     color: '#fff',
-    fontSize: '0.85rem',
+    fontSize: '0.8rem',
     textAlign: 'center',
-    lineHeight: '1.3',
-    maxHeight: '2.6em',
+    lineHeight: '1.2',
+    maxHeight: '2.4em',
     overflow: 'hidden',
   },
   tileSize: {
-    fontSize: '0.75rem',
+    fontSize: '0.7rem',
     color: 'var(--text-muted)',
-    marginTop: '0.25rem',
+    marginTop: '0.1rem',
   },
   tilePrice: {
-    fontSize: '0.95rem',
+    fontSize: '0.85rem',
     fontWeight: '700',
     color: 'var(--accent)',
-    marginTop: '0.5rem',
+    marginTop: '0.25rem',
   },
   cashPanel: {
     flex: 2.2,
-    minWidth: '400px',
+    minWidth: '340px',
     textAlign: 'left',
+    display: 'flex',
+    flexDirection: 'column',
+    overflowY: 'auto',
+    padding: '0.75rem',
   },
   cashSectionHeader: {
-    marginBottom: '1rem',
+    marginBottom: '0.5rem',
   },
   billsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
-    gap: '0.75rem',
-    marginBottom: '1.5rem',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(95px, 1fr))',
+    gap: '0.5rem',
+    marginBottom: '1rem',
   },
   coinsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
-    gap: '0.75rem',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))',
+    gap: '0.5rem',
   },
   cashTile: {
-    borderRadius: '10px',
+    borderRadius: '8px',
     position: 'relative',
     display: 'flex',
     flexDirection: 'column',
@@ -1129,13 +1145,13 @@ const styles = {
     transition: 'var(--transition)',
   },
   billTile: {
-    minHeight: '85px',
+    minHeight: '65px',
     boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
   },
   coinTile: {
     aspectRatio: '1',
     borderRadius: '100px',
-    maxWidth: '85px',
+    maxWidth: '65px',
     margin: '0 auto',
     boxShadow: '0 4px 8px rgba(0,0,0,0.3)',
   },
@@ -1259,34 +1275,36 @@ const styles = {
     paddingBottom: '0.2rem',
   },
   sidebarPanel: {
-    flex: 1.3,
-    minWidth: '320px',
+    flex: 1.1,
+    minWidth: '300px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '1.25rem',
+    gap: '0.5rem',
+    overflow: 'hidden',
   },
   sidebarCard: {
     textAlign: 'left',
+    padding: '0.6rem 0.8rem',
   },
   cardHeaderTitle: {
-    fontSize: '1.1rem',
-    marginBottom: '1rem',
+    fontSize: '0.95rem',
+    marginBottom: '0.4rem',
     borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-    paddingBottom: '0.5rem',
+    paddingBottom: '0.3rem',
   },
   identifiedUserBox: {
     background: 'rgba(212, 175, 55, 0.08)',
     border: '1px solid rgba(212, 175, 55, 0.3)',
     borderRadius: 'var(--radius-sm)',
-    padding: '1rem',
+    padding: '0.5rem 0.75rem',
     display: 'flex',
     alignItems: 'center',
     position: 'relative',
-    gap: '0.75rem',
+    gap: '0.6rem',
   },
   userAvatar: {
-    width: '45px',
-    height: '45px',
+    width: '38px',
+    height: '38px',
     borderRadius: '50px',
     background: 'var(--primary)',
     color: '#fff',
@@ -1294,7 +1312,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     fontWeight: '700',
-    fontSize: '1.2rem',
+    fontSize: '1rem',
   },
   userIdentDetails: {
     flex: 1,
@@ -1302,69 +1320,69 @@ const styles = {
   selectedName: {
     fontWeight: '700',
     color: '#fff',
-    fontSize: '1.05rem',
+    fontSize: '0.95rem',
   },
   selectedBalanceLabel: {
-    fontSize: '0.85rem',
+    fontSize: '0.8rem',
     color: 'var(--text-muted)',
-    marginTop: '0.15rem',
+    marginTop: '0.1rem',
   },
   parentLinkText: {
-    fontSize: '0.75rem',
+    fontSize: '0.7rem',
     color: 'var(--accent)',
-    marginTop: '0.1rem',
+    marginTop: '0.05rem',
   },
   removeUserBtn: {
     background: 'none',
     border: 'none',
     color: 'var(--text-muted)',
     cursor: 'pointer',
-    fontSize: '1.1rem',
-    padding: '0.25rem',
+    fontSize: '1rem',
+    padding: '0.2rem',
     position: 'absolute',
-    top: '0.5rem',
-    right: '0.5rem',
+    top: '0.4rem',
+    right: '0.4rem',
   },
   identifiedUserBoxContainer: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.75rem',
+    gap: '0.5rem',
   },
   limitInfoText: {
-    fontSize: '0.8rem',
+    fontSize: '0.75rem',
     color: '#eee',
-    marginTop: '0.35rem',
-    lineHeight: '1.4',
+    marginTop: '0.2rem',
+    lineHeight: '1.3',
   },
   hardwareRegistrationBox: {
     background: 'rgba(255, 255, 255, 0.03)',
     border: '1px solid var(--border)',
     borderRadius: 'var(--radius-sm)',
-    padding: '0.75rem 1rem',
+    padding: '0.5rem 0.75rem',
   },
   hardwareSectionTitle: {
-    fontSize: '0.8rem',
+    fontSize: '0.75rem',
     fontWeight: '600',
     color: 'var(--accent)',
     textTransform: 'uppercase',
-    marginBottom: '0.5rem',
+    marginBottom: '0.35rem',
     letterSpacing: '0.03em',
   },
   hardwareRow: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '0.4rem 0',
+    padding: '0.25rem 0',
     borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
-    fontSize: '0.85rem',
+    fontSize: '0.8rem',
   },
   hardwareStatusActive: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
+    gap: '0.4rem',
   },
   hardwareIdText: {
-    fontSize: '0.8rem',
+    fontSize: '0.75rem',
     color: 'var(--success)',
     fontWeight: '600',
   },
@@ -1372,29 +1390,29 @@ const styles = {
     background: 'none',
     border: 'none',
     color: 'var(--danger)',
-    fontSize: '0.75rem',
+    fontSize: '0.7rem',
     cursor: 'pointer',
     fontWeight: '600',
   },
   linkBtn: {
-    padding: '0.25rem 0.5rem',
+    padding: '0.2rem 0.4rem',
     fontSize: '0.75rem',
   },
   searchResultsDropdown: {
     position: 'absolute',
-    width: 'calc(100% - 3rem)',
+    width: 'calc(100% - 2rem)',
     background: '#1a1c23',
     border: '1px solid var(--border)',
     borderRadius: 'var(--radius-sm)',
     boxShadow: 'var(--shadow-lg)',
     zIndex: 50,
-    maxHeight: '200px',
+    maxHeight: '180px',
     overflowY: 'auto',
     marginTop: '0.25rem',
   },
   dropdownItem: {
     width: '100%',
-    padding: '0.65rem 1rem',
+    padding: '0.5rem 0.75rem',
     background: 'none',
     border: 'none',
     borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
@@ -1409,24 +1427,24 @@ const styles = {
     background: 'rgba(255, 255, 255, 0.02)',
     border: '1px dashed rgba(255, 255, 255, 0.1)',
     borderRadius: 'var(--radius-sm)',
-    padding: '0.75rem 1rem',
-    marginTop: '1rem',
+    padding: '0.5rem 0.75rem',
+    marginTop: '0.5rem',
   },
   scannerLabel: {
-    fontSize: '0.75rem',
+    fontSize: '0.7rem',
     color: 'var(--accent)',
     fontWeight: '600',
     textTransform: 'uppercase',
-    marginBottom: '0.5rem',
+    marginBottom: '0.35rem',
   },
   simBtnGrid: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.4rem',
+    gap: '0.3rem',
   },
   simBtn: {
-    padding: '0.4rem 0.75rem',
-    fontSize: '0.8rem',
+    padding: '0.3rem 0.6rem',
+    fontSize: '0.75rem',
     textAlign: 'left',
     justifyContent: 'flex-start',
   },
@@ -1434,14 +1452,14 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '0.5rem',
+    marginBottom: '0.35rem',
   },
   clearCartBtn: {
     background: 'none',
     border: 'none',
     color: 'var(--danger)',
     cursor: 'pointer',
-    fontSize: '0.85rem',
+    fontSize: '0.8rem',
     fontWeight: '600',
   },
   emptyCartBox: {
@@ -1451,17 +1469,18 @@ const styles = {
     justifyContent: 'center',
     textAlign: 'center',
     color: 'var(--text-muted)',
-    fontSize: '0.9rem',
-    minHeight: '120px',
+    fontSize: '0.85rem',
+    minHeight: '80px',
   },
   cartList: {
     flex: 1,
     overflowY: 'auto',
-    maxHeight: '30vh',
+    maxHeight: 'none',
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.5rem',
-    marginBottom: '1rem',
+    gap: '0.35rem',
+    marginBottom: '0.5rem',
+    paddingRight: '0.2rem',
   },
   cartItem: {
     display: 'flex',
