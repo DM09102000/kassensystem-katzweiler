@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { registerFingerprintOnTablet } from '../utils/webauthn';
 import ImageCropper from '../components/ImageCropper';
 
 export default function AdminDashboard({ token }) {
@@ -868,12 +869,31 @@ export default function AdminDashboard({ token }) {
 
                   <div className="form-group">
                     <label className="form-label">Fingerprint-ID</label>
-                    <input
-                      type="text"
-                      className="input-field"
-                      value={editUser.fingerprint_id}
-                      onChange={(e) => setEditUser({ ...editUser, fingerprint_id: e.target.value })}
-                    />
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input
+                        type="text"
+                        className="input-field"
+                        value={editUser.fingerprint_id}
+                        onChange={(e) => setEditUser({ ...editUser, fingerprint_id: e.target.value })}
+                        placeholder="ID oder Tablet-Sensor nutzen..."
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const fpId = await registerFingerprintOnTablet(editUser);
+                            setEditUser({ ...editUser, fingerprint_id: fpId });
+                            alert('Fingerabdruck auf Tablet erfolgreich eingelesen!');
+                          } catch (err) {
+                            alert(err.message);
+                          }
+                        }}
+                        className="btn btn-secondary"
+                        style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}
+                      >
+                        ☝️ Scannen
+                      </button>
+                    </div>
                   </div>
 
                   {editUser.parent_id && (

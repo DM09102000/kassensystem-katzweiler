@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isWebAuthnSupported, registerFingerprintOnTablet, scanFingerprintOnTablet } from '../utils/webauthn';
 
 const DENOMINATIONS = [
   { value: 100.0, label: '100 €', type: 'bill', color: '#889a74', border: '#748660' }, // premium olive green bill
@@ -189,6 +190,39 @@ export default function PosKiosk({ token }) {
       }
     } else {
       setError(`Fingerabdruck-ID "${fpId}" ist keinem Benutzer zugeordnet.`);
+    }
+  };
+
+  // Live Tablet Fingerprint Sensor Scan (WebAuthn)
+  const handleTabletFingerprintScan = async () => {
+    setError('');
+    setSuccess('');
+    try {
+      const user = await scanFingerprintOnTablet(users);
+      if (user) {
+        if (showCheckoutModal) {
+          setCheckoutUser(user);
+        } else {
+          setSelectedUser(user);
+          setSuccess(`Eingebauter Sensor: ${user.name} erfolgreich identifiziert!`);
+        }
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  // Live Tablet Fingerprint Sensor Register (WebAuthn)
+  const handleTabletFingerprintRegister = async () => {
+    if (!selectedUser) return;
+    setError('');
+    setSuccess('');
+    try {
+      const fpId = await registerFingerprintOnTablet(selectedUser);
+      await handleLinkHardware(undefined, fpId);
+      setSuccess(`Fingerabdruck auf Tablet erfolgreich für ${selectedUser.name} registriert!`);
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -570,7 +604,7 @@ export default function PosKiosk({ token }) {
                     <span>Fingerprint:</span>
                     {selectedUser.fingerprint_id ? (
                       <div style={styles.hardwareStatusActive}>
-                        <span style={styles.hardwareIdText}>Aktiv ({selectedUser.fingerprint_id})</span>
+                        <span style={styles.hardwareIdText}>Aktiv ({selectedUser.fingerprint_id.slice(0, 12)}...)</span>
                         <button
                           onClick={() => handleLinkHardware(undefined, null)}
                           style={styles.unlinkBtn}
@@ -580,11 +614,11 @@ export default function PosKiosk({ token }) {
                       </div>
                     ) : (
                       <button
-                        onClick={() => handleLinkHardware(undefined, `FP_${selectedUser.name.split(' ')[0].toUpperCase()}_${Math.floor(Math.random() * 900 + 100)}`)}
-                        className="btn btn-secondary"
-                        style={styles.linkBtn}
+                        onClick={handleTabletFingerprintRegister}
+                        className="btn btn-primary"
+                        style={{ ...styles.linkBtn, background: 'var(--accent)', color: '#000', fontWeight: '700' }}
                       >
-                        Scan & Verknüpfen
+                        ☝️ Am Tablet einlesen
                       </button>
                     )}
                   </div>
@@ -876,10 +910,20 @@ export default function PosKiosk({ token }) {
                     Bitte NFC-Chip an das Lesegerät halten oder den Finger auf den Scanner legen.
                   </p>
 
-                  {/* Hardware-Simulations-Tasten im Modal */}
+                  {/* Tablet Live Sensor & Simulation Buttons */}
                   <div style={styles.modalScannerSimBox}>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: '600' }}>
-                      SIMULIERE HARDWARE-SCAN:
+                    <div style={{ fontSize: '0.85rem', color: '#fff', marginBottom: '0.6rem', fontWeight: '700' }}>
+                      FINGERABDRUCK-SENSOR DES TABLETS:
+                    </div>
+                    <button
+                      onClick={handleTabletFingerprintScan}
+                      className="btn btn-accent"
+                      style={{ width: '100%', padding: '0.8rem', fontSize: '1rem', fontWeight: '800', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(212,175,55,0.3)' }}
+                    >
+                      ☝️ Fingerabdruck am Tablet scannen
+                    </button>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                      Oder Test-Simulationen:
                     </div>
                     <div style={styles.modalSimBtnGrid}>
                       <button
@@ -887,21 +931,21 @@ export default function PosKiosk({ token }) {
                         className="btn btn-secondary"
                         style={styles.modalSimBtn}
                       >
-                        💳 Scan NFC (Moritz - Limit 10€)
+                        💳 Scan NFC (Moritz)
                       </button>
                       <button
                         onClick={() => simulateNfcScan('NFC_MIA_456')}
                         className="btn btn-secondary"
                         style={styles.modalSimBtn}
                       >
-                        💳 Scan NFC (Mia - Limit 2€)
+                        💳 Scan NFC (Mia)
                       </button>
                       <button
                         onClick={() => simulateFingerprintScan('FP_MAX_999')}
                         className="btn btn-secondary"
                         style={styles.modalSimBtn}
                       >
-                        👆 Scan Fingerabdruck (Max)
+                        👆 Simuliere Finger (Max)
                       </button>
                     </div>
                   </div>
