@@ -6,6 +6,7 @@ import AdminDashboard from './pages/AdminDashboard.jsx';
 import UserDashboard from './pages/UserDashboard.jsx';
 import PosKiosk from './pages/PosKiosk.jsx';
 import Register from './pages/Register.jsx';
+import PwaInstallPrompt from './components/PwaInstallPrompt.jsx';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -132,6 +133,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
+        <PwaInstallPrompt />
       </div>
     </Router>
   );
