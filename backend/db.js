@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+import { populateDefaultProductImages } from './seed_product_images.js';
+
 const { Pool } = pg;
 
 const pool = new Pool({
@@ -22,6 +24,10 @@ async function testConnection() {
       await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE;');
       await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;');
       await client.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url TEXT;');
+      
+      // Auto-populate missing product images with 4:3 graphics
+      await populateDefaultProductImages((text, params) => client.query(text, params));
+
       client.release();
       break;
     } catch (err) {
