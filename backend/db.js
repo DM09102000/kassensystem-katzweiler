@@ -25,8 +25,8 @@ async function testConnection() {
       await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;');
       await client.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url TEXT;');
       
-      // Auto-populate missing product images with 4:3 graphics
-      await populateDefaultProductImages((text, params) => client.query(text, params));
+      // Auto-populate / update all product images with dynamic 4:3 graphics containing size/unit
+      await populateDefaultProductImages((text, params) => client.query(text, params), true);
 
       client.release();
       break;

@@ -1,8 +1,61 @@
 /**
- * SVG Image generator for Kantine FLB Products (4:3 aspect ratio = 400x300)
+ * Dynamic SVG Image generator for Kantine FLB Products (4:3 aspect ratio = 400x300)
+ * Includes product name, category, and size/unit (size_info)
  */
 
-function createSvgDataUrl(bg1, bg2, emoji, title, subtitle, accentColor) {
+export function generateProductSvg(name, size_info, category) {
+  const n = (name || '').toLowerCase();
+  const c = (category || '').toLowerCase();
+
+  let bg1 = '#1f2937';
+  let bg2 = '#111827';
+  let emoji = '📦';
+  let accentColor = '#3b82f6';
+
+  if (n.includes('weizen') && n.includes('alkoholfrei')) {
+    bg1 = '#0f2b48'; bg2 = '#1d4ed8'; emoji = '🌾'; accentColor = '#60a5fa';
+  } else if (n.includes('weizen')) {
+    bg1 = '#2c1802'; bg2 = '#5c330a'; emoji = '🍺'; accentColor = '#f59e0b';
+  } else if (n.includes('parkbräu') || n.includes('export')) {
+    bg1 = '#451a03'; bg2 = '#92400e'; emoji = '🍺'; accentColor = '#fef08a';
+  } else if (n.includes('bier') || n.includes('pils') || n.includes('radler')) {
+    bg1 = '#362003'; bg2 = '#78350f'; emoji = '🍺'; accentColor = '#fbbf24';
+  } else if (n.includes('gründel')) {
+    bg1 = '#064e3b'; bg2 = '#047857'; emoji = '🍻'; accentColor = '#34d399';
+  } else if (n.includes('riesling')) {
+    bg1 = '#14532d'; bg2 = '#15803d'; emoji = '🍷'; accentColor = '#86efac';
+  } else if (n.includes('weißherbst') || n.includes('rosé')) {
+    bg1 = '#831843'; bg2 = '#be185d'; emoji = '🍷'; accentColor = '#f472b6';
+  } else if (n.includes('schorle')) {
+    bg1 = '#1e293b'; bg2 = '#334155'; emoji = '🥂'; accentColor = '#cbd5e1';
+  } else if (n.includes('sekt')) {
+    bg1 = '#713f12'; bg2 = '#ca8a04'; emoji = '🍾'; accentColor = '#fef08a';
+  } else if (n.includes('bellaris') || n.includes('sprudel') || n.includes('wasser')) {
+    bg1 = '#0c4a6e'; bg2 = '#0284c7'; emoji = '💧'; accentColor = '#38bdf8';
+  } else if (n.includes('limo') || n.includes('soft') || n.includes('cola') || n.includes('fanta') || n.includes('sprite')) {
+    bg1 = '#701a75'; bg2 = '#c026d3'; emoji = '🥤'; accentColor = '#f0abfc';
+  } else if (n.includes('kaffee') || n.includes('espresso')) {
+    bg1 = '#291e17'; bg2 = '#54392b'; emoji = '☕'; accentColor = '#d97706';
+  } else if (n.includes('ramazotti') || n.includes('williams') || n.includes('schnaps') || n.includes('likör')) {
+    bg1 = '#431407'; bg2 = '#9a3412'; emoji = '🥃'; accentColor = '#fb923c';
+  } else if (n.includes('wurst') || n.includes('bratwurst')) {
+    bg1 = '#451a03'; bg2 = '#b45309'; emoji = '🌭'; accentColor = '#fde047';
+  } else if (n.includes('käse')) {
+    bg1 = '#713f12'; bg2 = '#a16207'; emoji = '🧀'; accentColor = '#fef08a';
+  } else if (n.includes('brezel')) {
+    bg1 = '#451a03'; bg2 = '#92400e'; emoji = '🥨'; accentColor = '#fef08a';
+  } else if (n.includes('erdnüss') || n.includes('nüsse')) {
+    bg1 = '#78350f'; bg2 = '#d97706'; emoji = '🥜'; accentColor = '#fef08a';
+  } else if (n.includes('chip')) {
+    bg1 = '#7f1d1d'; bg2 = '#dc2626'; emoji = '🥔'; accentColor = '#fca5a5';
+  } else if (c.includes('getränk')) {
+    bg1 = '#1e1b4b'; bg2 = '#3730a3'; emoji = '🍹'; accentColor = '#818cf8';
+  } else if (c.includes('speise') || c.includes('essen')) {
+    bg1 = '#451a03'; bg2 = '#78350f'; emoji = '🍔'; accentColor = '#fde047';
+  }
+
+  const sizeText = size_info ? String(size_info).trim() : '';
+
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
     <defs>
       <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -14,77 +67,61 @@ function createSvgDataUrl(bg1, bg2, emoji, title, subtitle, accentColor) {
         <stop offset="100%" stop-color="${accentColor}" stop-opacity="0" />
       </radialGradient>
       <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.5"/>
+        <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.6"/>
       </filter>
     </defs>
     <rect width="400" height="300" rx="0" fill="url(#bg)"/>
-    <circle cx="200" cy="130" r="110" fill="url(#glow)"/>
-    <circle cx="200" cy="130" r="70" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
-    <text x="200" y="152" font-size="76" text-anchor="middle" filter="url(#shadow)" dominant-baseline="middle">${emoji}</text>
-    <rect x="20" y="225" width="360" height="58" rx="10" fill="rgba(0,0,0,0.4)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
-    <text x="200" y="248" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">${title}</text>
-    <text x="200" y="268" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="500" fill="${accentColor}" text-anchor="middle">${subtitle}</text>
+    <circle cx="200" cy="120" r="110" fill="url(#glow)"/>
+    <circle cx="200" cy="120" r="65" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+    
+    <!-- Big Emoji Icon -->
+    <text x="200" y="138" font-size="70" text-anchor="middle" filter="url(#shadow)" dominant-baseline="middle">${emoji}</text>
+    
+    <!-- Top Right Unit / Size Pill Badge -->
+    ${sizeText ? `
+      <g transform="translate(380, 24)" text-anchor="end">
+        <rect x="-110" y="-14" width="110" height="28" rx="14" fill="${accentColor}" fill-opacity="0.25" stroke="${accentColor}" stroke-width="1.5" />
+        <text x="-55" y="4" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="800" fill="#ffffff" text-anchor="middle">${sizeText}</text>
+      </g>
+    ` : ''}
+
+    <!-- Bottom Info Overlay Card -->
+    <rect x="16" y="215" width="368" height="68" rx="12" fill="rgba(0,0,0,0.55)" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+    <text x="200" y="243" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="17" font-weight="800" fill="#ffffff" text-anchor="middle">${escapeXml(name)}</text>
+    <text x="200" y="266" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600" fill="${accentColor}" text-anchor="middle">${sizeText ? `Größe: ${escapeXml(sizeText)} • ` : ''}${escapeXml(category || 'Kantine')}</text>
   </svg>`;
+
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-export const defaultProductImages = {
-  'Franziskaner Weizenbier': createSvgDataUrl('#2c1802', '#5c330a', '🍺', 'Franziskaner', 'Hefe-Weizenbier 0,5L', '#f59e0b'),
-  'Weizenbier, alkoholfrei': createSvgDataUrl('#0f2b48', '#1d4ed8', '🌾', 'Weizenbier Alkoholfrei', 'Isotonisch & Erfrischend 0,5L', '#60a5fa'),
-  'Bier und Biermischgetränke': createSvgDataUrl('#362003', '#78350f', '🍺', 'Pils / Export / Radler', 'Kühles Flaschenbier 0,33L', '#fbbf24'),
-  'Gründels, alkoholfrei': createSvgDataUrl('#064e3b', '#047857', '🍻', 'Gründels Alkoholfrei', 'Feinherbes Alkoholfreies 0,33L', '#34d399'),
-  'Parkbräu Export': createSvgDataUrl('#451a03', '#92400e', '🍺', 'Parkbräu Export', 'Pfälzer Braukunst 0,5L', '#fef08a'),
-  'Sprudel, sauer': createSvgDataUrl('#0c4a6e', '#0284c7', '💧', 'Sprudel Sauer', 'Spritziges Mineralwasser 0,7L', '#38bdf8'),
-  'Limo, silber': createSvgDataUrl('#701a75', '#c026d3', '🥤', 'Limo Silber', 'Zitronen- & Orangenlimonade 0,7L', '#f0abfc'),
-  'Riesling halbtrocken': createSvgDataUrl('#14532d', '#15803d', '🍷', 'Riesling Halbtrocken', 'Qualitätswein aus der Pfalz', '#86efac'),
-  'Portugiesischer Weißherbst': createSvgDataUrl('#831843', '#be185d', '🍷', 'Pfälzer Weißherbst', 'Fruchtiger Roséwein', '#f472b6'),
-  'Weinschorle': createSvgDataUrl('#1e293b', '#334155', '🥂', 'Pfälzer Weinschorle', 'Erfrischend & Spritzig', '#cbd5e1'),
-  'Sekt': createSvgDataUrl('#713f12', '#ca8a04', '🍾', 'Pfälzer Sekt', 'Feinperlig & Elegent 0,7L', '#fef08a'),
-  'Softgetränke': createSvgDataUrl('#450a0a', '#991b1b', '🥤', 'Softdrinks', 'Cola, Fanta, Sprite 0,33L', '#fca5a5'),
-  'Bellaris Sprudel, sauer': createSvgDataUrl('#164e63', '#0891b2', '🧊', 'Bellaris Sprudel', 'Mineralwasser 0,33L', '#67e8f9'),
-  'Kaffee': createSvgDataUrl('#291e17', '#54392b', '☕', 'Frischer Kaffee', 'Aromatischer Bohnenkaffee', '#d97706'),
-  'Ramazotti': createSvgDownUrl('#431407', '#9a3412', '🥃', 'Ramazotti', 'Kräuterlikör auf Eis 0,02L', '#fb923c'),
-  'Williamschrist & sonstiges': createSvgDataUrl('#3f6212', '#65a30d', '🍸', 'Williams Christ', 'Edelbrand & Schnaps 0,02L', '#bef264'),
-  'Wurst mit Brötchen': createSvgDataUrl('#451a03', '#b45309', '🌭', 'Bratwurst im Brötchen', 'Knusprig gegrillt mit Senf', '#fde047'),
-  'Käsebrötchen': createSvgDataUrl('#713f12', '#a16207', '🧀', 'Käsebrötchen', 'Belegtes Brötchen mit Käse', '#fef08a'),
-  'Brezel, gebacken': createSvgDataUrl('#451a03', '#92400e', '🥨', 'Ofenfrische Brezel', 'Bayerische Laugenbrezel', '#fef08a'),
-  'Brezel, trocken': createSvgDataUrl('#3f2305', '#78350f', '🥨', 'Laugenbrezel', 'Klassische Brezel', '#fef08a'),
-  'Erdnüsse': createSvgDataUrl('#78350f', '#d97706', '🥜', 'Knabber-Erdnüsse', 'Geröstet & Gesalzen', '#fef08a'),
-  'Chio-Chips': createSvgDataUrl('#7f1d1d', '#dc2626', '🥔', 'Chio Chips', 'Knusprige Kartoffelchips', '#fca5a5'),
-};
-
-function createSvgDownUrl(bg1, bg2, emoji, title, subtitle, accentColor) {
-  return createSvgDataUrl(bg1, bg2, emoji, title, subtitle, accentColor);
+function escapeXml(unsafe) {
+  return String(unsafe || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
-export async function populateDefaultProductImages(queryFn) {
+export async function populateDefaultProductImages(queryFn, forceAll = false) {
   try {
-    const res = await queryFn('SELECT id, name FROM products WHERE image_url IS NULL OR image_url = \'\'');
+    const queryStr = forceAll
+      ? 'SELECT id, name, size_info, category FROM products'
+      : 'SELECT id, name, size_info, category FROM products WHERE image_url IS NULL OR image_url = \'\' OR image_url LIKE \'data:image/svg+xml%\'';
+    
+    const res = await queryFn(queryStr);
     if (res.rows.length === 0) {
-      console.log('All products already have images assigned.');
+      console.log('No products need image generation.');
       return;
     }
 
     let updatedCount = 0;
     for (const prod of res.rows) {
-      // Find matching default image by product name key
-      let imgData = null;
-      for (const [key, dataUrl] of Object.entries(defaultProductImages)) {
-        if (prod.name.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(prod.name.toLowerCase())) {
-          imgData = dataUrl;
-          break;
-        }
-      }
-
-      if (!imgData) {
-        // Fallback default image by category / generic
-        imgData = createSvgDataUrl('#1f2937', '#374151', '📦', prod.name, 'Kantine FLB', '#9ca3af');
-      }
-
+      const imgData = generateProductSvg(prod.name, prod.size_info, prod.category);
       await queryFn('UPDATE products SET image_url = $1 WHERE id = $2', [imgData, prod.id]);
       updatedCount++;
     }
-    console.log(`Successfully populated ${updatedCount} product images with default 4:3 graphics.`);
+    console.log(`Successfully generated dynamic 4:3 product images (with size & category) for ${updatedCount} products.`);
   } catch (err) {
     console.error('Error populating default product images:', err.message);
   }
